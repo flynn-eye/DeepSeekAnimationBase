@@ -1,0 +1,19 @@
+.github/workflows/pages.yml
+  s_7b8694bc51196f::t_bbb0a45e312af8 32,34-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.49-trip",
+  "base_commit_sha": "f9fba9a33909ecd9e118d5c0be2d0da5652d5f9d",
+  "prompts": {},
+  "sessions": {
+    "s_7b8694bc51196f": {
+      "agent_id": {
+        "tool": "chengxiaobang",
+        "id": "s_33oaohcf5a77",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "flynn-eye <939649107@qq.com>"
+    }
+  }
+}
