@@ -29,11 +29,13 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Assemble site
         run: |
-          mkdir -p _site/node_modules/p5/lib _site/node_modules/p5.brush/dist
-          cp preview.html _site/index.html
+          mkdir -p _site/vendor
           cp -r src _site/src
-          cp node_modules/p5/lib/p5.min.js _site/node_modules/p5/lib/
-          cp node_modules/p5.brush/dist/p5.brush.js _site/node_modules/p5.brush/dist/
+          cp node_modules/p5/lib/p5.min.js _site/vendor/p5.min.js
+          cp node_modules/p5.brush/dist/p5.brush.js _site/vendor/p5.brush.js
+          sed -e 's#node_modules/p5/lib/p5.min.js#vendor/p5.min.js#' \
+              -e 's#node_modules/p5.brush/dist/p5.brush.js#vendor/p5.brush.js#' \
+              preview.html > _site/index.html
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
