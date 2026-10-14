@@ -43,8 +43,6 @@
   .lang { margin-left: auto; display: flex; gap: 4px; }
   .lang button { padding: 4px 12px; }
 </style>
-<script src="node_modules/p5/lib/p5.min.js"></script>
-<script src="node_modules/p5.brush/dist/p5.brush.js"></script>
 </head>
 <body>
 <header>
@@ -108,21 +106,36 @@
     </div>
   </aside>
 </main>
-<script>if (!window.p5 || !window.brush) document.getElementById('warn').style.display = 'block';</script>
-<script src="src/config.js"></script>
-<script src="src/core.js"></script>
-<script src="src/seeky.js"></script>
-<script src="src/hats.js"></script>
-<script src="src/timeline.js"></script>
-<script src="src/sheets.js"></script>
-<script>
+<script type="module">
+// p5 and p5.brush come from the jsDelivr CDN as ES modules (pinned versions, no npm install or build step).
+// p5.brush registers itself on the global `p5` while it evaluates, so p5 must be on window before brush is imported.
+const CDN = 'https://cdn.jsdelivr.net/npm';
+const loadScript = (src, text) => new Promise((ok, fail) => {
+  const s = document.createElement('script');
+  if (src) { s.src = src; s.onload = ok; s.onerror = () => fail(new Error('failed to load ' + src)); }
+  else { s.textContent = text; }
+  document.body.appendChild(s);
+  if (!src) ok();
+});
+try {
+  window.p5 = (await import(CDN + '/p5@2.3.3/lib/p5.esm.min.js')).default;
+  window.brush = await import(CDN + '/p5.brush@2.2.3/dist/p5.brush.esm.js');
+} catch (e) {
+  console.error(e);
+  document.getElementById('warn').style.display = 'block';
+  throw e;
+}
+for (const f of ['config', 'core', 'seeky', 'hats', 'timeline', 'sheets']) await loadScript('src/' + f + '.js');
+for (const el of document.querySelectorAll('script[data-app]')) await loadScript(null, el.textContent);
+</script>
+<script type="text/plain" data-app>
 // UI strings. English is the default; ?lang=zh (or the switch in the header, remembered in localStorage) picks Chinese.
 const I18N = {
   en: {
     title: 'Seeky · the DeepSeek Sprite', pageTitle: 'Seeky · DeepSeek Sprite Preview',
     intro: 'A little floating whale in DeepSeek blue, painted frame by frame with watercolour brushes. Use the panel on the right to change its emotion, view, hat and moves.',
     langGroup: 'Language',
-    warn: 'p5 / p5.brush did not load. Run <code>npm install</code> in the project folder first, then open this file in Chrome.',
+    warn: 'p5 / p5.brush could not be loaded from the jsDelivr CDN. Check your network connection and reload the page.',
     stageArea: 'Character stage', modes: 'Preview mode', canvas: 'Live render of Seeky', panel: 'Controls',
     tabStage: 'Character stage', tabEmotions: '31 emotions', tabViews: 'Views · motion', tabHats1: 'Hats · every view 1', tabHats2: 'Hats · every view 2',
     play: 'Play', pause: 'Pause', loading: 'Loading…', msFrame: 'ms/frame',
@@ -150,7 +163,7 @@ const I18N = {
     title: 'Seeky · DeepSeek 小精灵', pageTitle: 'Seeky · DeepSeek 小精灵形象预览',
     intro: '一只漂浮的 DeepSeek 蓝小鲸鱼，用水彩笔刷逐帧手绘。点右侧按钮切换情绪、视角、帽子和动作。',
     langGroup: '语言',
-    warn: '没有加载到 p5 / p5.brush。请先在项目根目录运行 <code>npm install</code>，再用 Chrome 直接打开本文件。',
+    warn: '无法从 jsDelivr CDN 加载 p5 / p5.brush。请检查网络连接后刷新页面。',
     stageArea: '形象舞台', modes: '预览模式', canvas: 'Seeky 的实时渲染画面', panel: '控制面板',
     tabStage: '角色舞台', tabEmotions: '31 种情绪', tabViews: '视角 · 动作', tabHats1: '帽子 · 全视角 1', tabHats2: '帽子 · 全视角 2',
     play: '播放', pause: '暂停', loading: '加载中…', msFrame: 'ms/帧',
@@ -183,7 +196,7 @@ let LANG = (() => {
 })();
 const tr = k => I18N[LANG][k] ?? I18N.en[k];
 </script>
-<script>
+<script type="text/plain" data-app>
 (() => {
   const FAMILIES = [
     ['happy', 'excited', 'laugh', 'love', 'proud', 'starstruck', 'playful', 'hopeful', 'relieved'],
