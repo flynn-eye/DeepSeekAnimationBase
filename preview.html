@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seeky · DeepSeek Sprite Preview</title>
+<style>
+  :root { --ds: #4D6BFE; --ds-dk: #2E46C2; --ds-lt: #9DAEFF; --ink: #2B2233; --paper: #F3EBDC; --bg: #F5F7FF; --card: #FFFFFF; --muted: #5E6478; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+  header { padding: 22px 28px 10px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 26px; color: var(--ds-dk); letter-spacing: .5px; }
+  header p { margin: 0; color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; padding: 8px 28px 28px; align-items: start; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border-radius: 14px; box-shadow: 0 2px 10px rgba(46, 70, 194, .08); padding: 14px 16px; }
+  .stage { padding: 10px; }
+  #out { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; border-radius: 10px; background: var(--paper); }
+  .p5Canvas { display: none !important; }
+  .tabs { display: flex; gap: 6px; margin: 0 0 10px; flex-wrap: wrap; }
+  .status { display: flex; gap: 12px; align-items: center; margin-top: 8px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .status input[type=range] { display: none; }
+  h2 { font-size: 15px; margin: 4px 0 8px; color: var(--ds-dk); }
+  .group { margin-bottom: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: inherit; border: 1px solid #D5DCFF; background: #fff; color: var(--ink); padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+  button:hover { border-color: var(--ds); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--ds); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--ds); border-color: var(--ds); color: #fff; }
+  .tabs button { padding: 6px 14px; font-weight: 600; }
+  label.row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  label.row span { min-width: 64px; color: var(--muted); }
+  select, input[type=range] { flex: 1; }
+  select { font: inherit; padding: 4px 6px; border-radius: 8px; border: 1px solid #D5DCFF; background: #fff; }
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sw { display: grid; gap: 4px; justify-items: center; font-size: 12px; color: var(--muted); }
+  .sw i { width: 44px; height: 44px; border-radius: 10px; border: 1px solid rgba(0,0,0,.08); }
+  ul.notes { margin: 0; padding-left: 18px; }
+  ul.notes li { margin: 3px 0; }
+  .fam { font-size: 12px; color: var(--muted); margin: 6px 0 3px; }
+  .hint { font-size: 12px; color: var(--muted); }
+  .warn { display: none; background: #FFF4E5; color: #8A4B00; padding: 10px 14px; border-radius: 10px; margin: 0 28px 12px; }
+  .lang { margin-left: auto; display: flex; gap: 4px; }
+  .lang button { padding: 4px 12px; }
+</style>
+<script src="node_modules/p5/lib/p5.min.js"></script>
+<script src="node_modules/p5.brush/dist/p5.brush.js"></script>
+</head>
+<body>
+<header>
+  <h1 data-i18n="title"></h1>
+  <p data-i18n="intro"></p>
+  <div class="lang" role="group" data-i18n-aria="langGroup">
+    <button data-lang="en" lang="en">English</button>
+    <button data-lang="zh" lang="zh-CN">中文</button>
+  </div>
+</header>
+<div class="warn" id="warn" role="alert" data-i18n-html="warn"></div>
+<main>
+  <section class="card stage" data-i18n-aria="stageArea">
+    <div class="tabs" role="group" data-i18n-aria="modes">
+      <button data-mode="stage" aria-pressed="true" data-i18n="tabStage"></button>
+      <button data-mode="emotions" aria-pressed="false" data-i18n="tabEmotions"></button>
+      <button data-mode="views" aria-pressed="false" data-i18n="tabViews"></button>
+      <button data-mode="hats" aria-pressed="false" data-i18n="tabHats1"></button>
+      <button data-mode="hats2" aria-pressed="false" data-i18n="tabHats2"></button>
+    </div>
+    <canvas id="out" width="1920" height="1080" role="img" data-i18n-aria="canvas"></canvas>
+    <div class="status">
+      <button id="play" aria-pressed="true"></button>
+      <span id="tt" data-i18n="loading"></span>
+      <input id="scrub" type="range" min="0" max="4" step="0.0417" value="0" aria-hidden="true" tabindex="-1">
+    </div>
+    <p class="hint" data-i18n="hint"></p>
+  </section>
+  <aside class="card" data-i18n-aria="panel">
+    <div class="group">
+      <h2 data-i18n="hEmotions"></h2>
+      <div id="emos"></div>
+    </div>
+    <div class="group">
+      <h2 data-i18n="hViews"></h2>
+      <div class="chips" id="views" role="group" data-i18n-aria="hViews"></div>
+      <label class="row"><input type="checkbox" id="flip"> <span data-i18n="flip"></span></label>
+      <label class="row"><input type="checkbox" id="spin"> <span data-i18n="spin"></span></label>
+    </div>
+    <div class="group">
+      <h2 data-i18n="hOutfit"></h2>
+      <label class="row"><span data-i18n="hat"></span><select id="hat"></select></label>
+      <label class="row"><span data-i18n="emote"></span><select id="emote"></select></label>
+      <label class="row"><span data-i18n="dance"></span><select id="dance"></select></label>
+      <label class="row"><span data-i18n="size"></span><input type="range" id="size" min="12" max="56" value="30"><output id="sizeV">30</output></label>
+      <label class="row"><span data-i18n="bg"></span><select id="bg"><option value="sky" data-i18n="bgSky"></option><option value="sea" data-i18n="bgSea"></option><option value="night" data-i18n="bgNight"></option><option value="paper" data-i18n="bgPaper"></option></select></label>
+    </div>
+    <div class="group">
+      <h2 data-i18n="hColours"></h2>
+      <div class="swatches">
+        <div class="sw"><i style="background:#4D6BFE"></i>#4D6BFE<br><span data-i18n="cBody"></span></div>
+        <div class="sw"><i style="background:#2E46C2"></i>#2E46C2<br><span data-i18n="cShade"></span></div>
+        <div class="sw"><i style="background:#9DAEFF"></i>#9DAEFF<br><span data-i18n="cHighlight"></span></div>
+        <div class="sw"><i style="background:#E6EBFF"></i><span data-i18n="cBelly"></span></div>
+        <div class="sw"><i style="background:#2B2233"></i><span data-i18n="cInk"></span></div>
+      </div>
+    </div>
+    <div class="group">
+      <h2 data-i18n="hNotes"></h2>
+      <ul class="notes" id="notes"></ul>
+    </div>
+  </aside>
+</main>
+<script>if (!window.p5 || !window.brush) document.getElementById('warn').style.display = 'block';</script>
+<script src="src/config.js"></script>
+<script src="src/core.js"></script>
+<script src="src/seeky.js"></script>
+<script src="src/hats.js"></script>
+<script src="src/timeline.js"></script>
+<script src="src/sheets.js"></script>
+<script>
+// UI strings. English is the default; ?lang=zh (or the switch in the header, remembered in localStorage) picks Chinese.
+const I18N = {
+  en: {
+    title: 'Seeky · the DeepSeek Sprite', pageTitle: 'Seeky · DeepSeek Sprite Preview',
+    intro: 'A little floating whale in DeepSeek blue, painted frame by frame with watercolour brushes. Use the panel on the right to change its emotion, view, hat and moves.',
+    langGroup: 'Language',
+    warn: 'p5 / p5.brush did not load. Run <code>npm install</code> in the project folder first, then open this file in Chrome.',
+    stageArea: 'Character stage', modes: 'Preview mode', canvas: 'Live render of Seeky', panel: 'Controls',
+    tabStage: 'Character stage', tabEmotions: '31 emotions', tabViews: 'Views · motion', tabHats1: 'Hats · every view 1', tabHats2: 'Hats · every view 2',
+    play: 'Play', pause: 'Pause', loading: 'Loading…', msFrame: 'ms/frame',
+    hint: 'Tip: p5.brush watercolour fills are heavy, so a few frames a second on integrated graphics is normal. Render finished videos offline with render.mjs.',
+    hEmotions: 'Emotions', hViews: 'Views', flip: 'Face left (flip)', spin: 'Turntable: step through the 8 key headings',
+    hOutfit: 'Outfits and moves', hat: 'Hat', emote: 'Emote', dance: 'Dance', size: 'Size u', bg: 'Background',
+    bgSky: 'Clear sky', bgSea: 'Seaside', bgNight: 'Night sky', bgPaper: 'Plain paper', none: 'None', noDance: 'No dance', swim: 'Swim (walk)',
+    hColours: 'Brand colours', cBody: 'Body', cShade: 'Shade', cHighlight: 'Highlight', cBelly: 'Belly', cInk: 'Ink',
+    fams: ['Joy', 'Sly', 'Low', 'Hot', 'Alarm', 'Mind'],
+    hNotes: 'Design notes',
+    notes: [
+      'Inspired by the blue whale in the DeepSeek logo, with the tail curling up into a two-lobed fluke',
+      'A soft body, round on top and flatter underneath, with a pale belly and two little flippers',
+      'The profile is drawn on its own: a blunt head, a body tapering toward the tail, stalk and fluke in one outline with the body, the mouth line along the throat and a fin sweeping back',
+      'No legs: it floats about 2u above the ground and its shadow shrinks as it rises; walk drives a swimming tail beat',
+      'In the 3/4 views the far side is a soft shade that fades toward the face, with no line between them',
+      'Hats are drawn per view: parts are placed round the head by azimuth, so a crown shows the spikes facing you, a hard hat\'s visor follows the nose, a headband\'s knot only shows from the side and behind, cat ears overlap in profile and headphones show one cup in profile',
+      'From behind, the tail steps aside for tall hats so it never hides them',
+      'The water spout on its head hops on the beat and hides under tall hats',
+      'A few tiny stars wink in and out around it: the sprite\'s glitter',
+      'Clawd\'s whole API is kept: 31 emotions, 24 eyes, 16 mouths, 18 hats and face pieces, emotes and dances',
+    ],
+  },
+  zh: {
+    title: 'Seeky · DeepSeek 小精灵', pageTitle: 'Seeky · DeepSeek 小精灵形象预览',
+    intro: '一只漂浮的 DeepSeek 蓝小鲸鱼，用水彩笔刷逐帧手绘。点右侧按钮切换情绪、视角、帽子和动作。',
+    langGroup: '语言',
+    warn: '没有加载到 p5 / p5.brush。请先在项目根目录运行 <code>npm install</code>，再用 Chrome 直接打开本文件。',
+    stageArea: '形象舞台', modes: '预览模式', canvas: 'Seeky 的实时渲染画面', panel: '控制面板',
+    tabStage: '角色舞台', tabEmotions: '31 种情绪', tabViews: '视角 · 动作', tabHats1: '帽子 · 全视角 1', tabHats2: '帽子 · 全视角 2',
+    play: '播放', pause: '暂停', loading: '加载中…', msFrame: 'ms/帧',
+    hint: '提示：p5.brush 的水彩填充较重，集显上大约每秒几帧，这是正常的；成片用 render.mjs 离线渲染。',
+    hEmotions: '情绪', hViews: '视角', flip: '朝左（flip）', spin: '转台：依次转过 8 个关键视角',
+    hOutfit: '装扮与动作', hat: '帽子', emote: '表情符号', dance: '舞步', size: '大小 u', bg: '背景',
+    bgSky: '晴空', bgSea: '海边', bgNight: '夜空', bgPaper: '纯纸面', none: '无', noDance: '不跳舞', swim: '游动（walk）',
+    hColours: '品牌色', cBody: '身体', cShade: '阴影', cHighlight: '高光', cBelly: '肚皮', cInk: '墨线',
+    fams: ['喜', '坏', '低落', '火大', '惊', '思考'],
+    hNotes: '设计要点',
+    notes: [
+      '原型：DeepSeek logo 的蓝色鲸鱼，尾巴向上卷起成双叶尾鳍',
+      '身体是上圆下平的软糯造型，浅色肚皮，两只鳍状小手',
+      '侧面单独绘制：圆钝鲸头，身体向尾部收窄，尾柄和尾鳍与身体连成一条轮廓，嘴线沿喉部延伸，胸鳍向后掠',
+      '没有腿，离地约 2u 悬浮，影子随高度缩放；walk 驱动摆尾游动',
+      '3/4 视角的侧面是一片向脸部渐淡的柔和阴影，正面和侧面之间不画分界线',
+      '帽子按视角分别绘制：零件按"绕头方位"摆放，皇冠露出真正朝向的尖角，安全帽的帽舌跟着鼻子转，头带的结只在侧面和背面出现，猫耳侧面时一前一后，耳机侧面只剩一个耳罩',
+      '从背面看，尾巴会给高帽子让路，不会挡住帽子',
+      '头顶喷水孔的小水花随节拍跳动，戴高帽时自动隐藏',
+      '身边会闪现几颗小星星，是"精灵"的灵气',
+      '沿用原 Clawd 的全部 API：31 种情绪、24 种眼睛、16 种嘴型、18 种帽子和面饰、表情符号、舞步',
+    ],
+  },
+};
+let LANG = (() => {
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'zh' || q === 'en') return q;
+  try { const s = localStorage.getItem('seeky-lang'); if (s === 'zh' || s === 'en') return s; } catch (e) {}
+  return 'en';
+})();
+const tr = k => I18N[LANG][k] ?? I18N.en[k];
+</script>
+<script>
+(() => {
+  const FAMILIES = [
+    ['happy', 'excited', 'laugh', 'love', 'proud', 'starstruck', 'playful', 'hopeful', 'relieved'],
+    ['smug', 'cool', 'mischief', 'suspicious'],
+    ['sad', 'cry', 'bored', 'sleepy', 'ko'],
+    ['angry', 'furious', 'determined', 'disgusted'],
+    ['scared', 'nervous', 'surprised', 'confused', 'dizzy'],
+    ['neutral', 'thinking', 'idea', 'shy'],
+  ];
+  const HEAD = { front: 0, q: .125, side: .25, qback: .375, back: .5 };
+  const HATS = ['', 'party', 'hard', 'crown', 'halo', 'wizard', 'hood', 'top', 'fedora', 'band', 'sweatband', 'beanie', 'bow', 'flower', 'headphones', 'cat', 'masq', 'mask', 'bowtie'];
+  const EMOTES = ['', '!', '?', '!!', '!?', 'zzz', 'sweat', 'spark', 'heart', 'hearts', 'anger', 'steam', 'bulb', 'dots', 'scribble', 'music', 'swirl', 'stars', 'cloud'];
+  const DANCES = ['', 'swim', 'bounce', 'hop', 'roof', 'sway', 'spin', 'wave', 'stomp', 'shimmy', 'mix'];
+
+  // Interactive state. Each change records when it happened, so emotions() and turn() can act it out.
+  const S = { mode: 'stage', emo: 'happy', keys: [[-99, 'happy']], view: 'front', head: 0, turnFrom: 0, turnAt: -99,
+              flip: false, spin: false, hat: '', emote: '', dance: '', u: 30, bg: 'sky' };
+  let clock = 0, playing = true, last = performance.now(), dirty = true;
+
+  const $ = id => document.getElementById(id);
+  const chip = (txt, pressed, on) => { const b = document.createElement('button'); b.textContent = txt; b.setAttribute('aria-pressed', pressed); b.onclick = on; return b; };
+  const press = (box, b) => { box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+
+  FAMILIES.forEach((names, fi) => {
+    const t = document.createElement('div'); t.className = 'fam'; t.dataset.fam = fi; $('emos').appendChild(t);
+    const box = document.createElement('div'); box.className = 'chips'; box.setAttribute('role', 'group'); box.dataset.famAria = fi;
+    names.forEach(n => box.appendChild(chip(n, n === S.emo, e => {
+      $('emos').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === e.target));
+      if (n !== S.emo) { S.keys = [[-99, S.emo], [clock, n]]; S.emo = n; dirty = true; }
+    })));
+    $('emos').appendChild(box);
+  });
+  Object.keys(HEAD).forEach(v => $('views').appendChild(chip(v, v === S.view, e => {
+    press($('views'), e.target); S.turnFrom = curHead(clock); S.turnAt = clock; S.view = v; S.head = HEAD[v]; dirty = true;
+  })));
+  // option labels: the code names stay as they are; only the empty choice and the swim dance get translated
+  const fill = (sel, list, empty) => list.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; if (!v) o.dataset.i18n = empty; if (v === 'swim') o.dataset.i18n = 'swim'; sel.appendChild(o); });
+  fill($('hat'), HATS, 'none'); fill($('emote'), EMOTES, 'none'); fill($('dance'), DANCES, 'noDance');
+
+  // Apply the current language to every labelled element, the lists built above, and the play button.
+  function applyLang() {
+    document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+    document.title = tr('pageTitle');
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = tr(el.dataset.i18nHtml); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', tr(el.dataset.i18nAria)));
+    document.querySelectorAll('[data-fam]').forEach(el => { el.textContent = tr('fams')[el.dataset.fam]; });
+    document.querySelectorAll('[data-fam-aria]').forEach(el => el.setAttribute('aria-label', tr('fams')[el.dataset.famAria]));
+    $('notes').replaceChildren(...tr('notes').map(s => { const li = document.createElement('li'); li.textContent = s; return li; }));
+    $('play').textContent = tr(playing ? 'pause' : 'play');
+    document.querySelectorAll('.lang button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === LANG));
+  }
+  document.querySelectorAll('.lang button').forEach(b => b.onclick = () => {
+    LANG = b.dataset.lang; try { localStorage.setItem('seeky-lang', LANG); } catch (e) {}
+    const u = new URL(location.href); u.searchParams.set('lang', LANG); history.replaceState(null, '', u);
+    applyLang();
+  });
+  applyLang();
+  $('hat').onchange = e => { S.hat = e.target.value; dirty = true; };
+  $('emote').onchange = e => { S.emote = e.target.value; S.emoteAt = clock; dirty = true; };
+  $('dance').onchange = e => { S.dance = e.target.value; dirty = true; };
+  $('bg').onchange = e => { S.bg = e.target.value; dirty = true; };
+  $('size').oninput = e => { S.u = +e.target.value; $('sizeV').value = S.u; dirty = true; };
+  $('flip').onchange = e => { S.turnFrom = curHead(clock); S.turnAt = clock; S.flip = e.target.checked; dirty = true; };
+  $('spin').onchange = e => { S.spin = e.target.checked; dirty = true; };
+  document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { press(b.parentNode, b); S.mode = b.dataset.mode; dirty = true; });
+  $('play').onclick = () => { playing = !playing; $('play').textContent = tr(playing ? 'pause' : 'play'); $('play').setAttribute('aria-pressed', playing); last = performance.now(); };
+
+  // heading in turns (0 front, .25 facing right, -.25 facing left); a change turns through the drawn key views
+  const target = () => S.flip ? -S.head : S.head;
+  const curHead = t => lerp(S.turnFrom, target(), ease(seg(t, S.turnAt, S.turnAt + .25)));
+  const G = 900;   // ground line of the stage
+  function backdrop(t) {
+    boilSeed('bg');
+    if (S.bg === 'paper') { inkLine([[160, G + 6], [W / 2, G + 3], [W - 160, G + 7]], .8, mixCol(PAL.paper, PAL.ink, .35), 'inkfine', .5); return; }
+    const night = S.bg === 'night', sea = S.bg === 'sea';
+    paint(rectPts(-60, -60, W + 120, H + 120), { wash: night ? PAL.night : '#CFE0F6', ink: null });
+    paint(ellPts(W * .5, H * .3, W * .55, H * .32, 26, 10), { fill: night ? PAL.indigo : '#EAF2FF', fillOp: 110, bleed: .3, tex: .6, ink: null });
+    if (night) for (let i = 0; i < 30; i++) {
+      boilSeed('star' + i);
+      const tw = .55 + .45 * Math.sin(t * (2 + 2 * hash(i + 300)) + i);
+      paint(starPts(hash(i) * W, hash(i + 100) * H * .6, (3 + 5 * hash(i + 200)) * tw, .35, 4), { wash: PAL.cream, washOp: 150 + 100 * tw, ink: null });
+    } else for (let i = 0; i < 3; i++) {   // slow drifting clouds
+      boilSeed('cloud' + i);
+      const cx = ((hash(i) * W + t * (14 + 8 * i)) % (W + 600)) - 300, cy = 140 + 110 * i;
+      paint(ellPts(cx, cy, 170 - 30 * i, 46, 20, 4), { wash: '#FFFFFF', washOp: 200, fill: PAL.sky, fillOp: 40, ink: null });
+    }
+    boilSeed('ground');
+    if (sea) {
+      paint(rectPts(-60, G - 40, W + 120, H - G + 100, 3), { wash: mixCol(PAL.ds, '#FFFFFF', .45), fill: PAL.ds, fillOp: 70, bleed: .05, tex: .6, ink: null });
+      for (let k = 0; k < 3; k++) {   // rolling wave crests
+        boilSeed('wave' + k);
+        const y = G - 30 + k * 60, P = []; for (let i = 0; i <= 24; i++) { const x = -40 + i * (W + 80) / 24; P.push([x, y + 9 * Math.sin(i * .9 + t * (1.4 + k * .3) + k)]); }
+        inkLine(P, .8, mixCol(PAL.cream, PAL.ds, .2), 'inkfine', .5);
+      }
+    } else {
+      paint(rectPts(-60, G - 20, W + 120, H - G + 100, 3), { wash: night ? mixCol(PAL.sap, PAL.night, .35) : '#BFD9A4', fill: night ? mixCol(PAL.sap, PAL.night, .55) : PAL.sap, fillOp: 70, bleed: .05, tex: .6, ink: null });
+      inkLine([[-60, G - 18], [W / 2, G - 24], [W + 60, G - 16]], 1, PAL.ink, 'ink', .5);
+    }
+  }
+
+  // The stage: one Seeky, acting whatever the panel says, from the moment it was asked.
+  function stage(t) {
+    camBegin(960 + 14 * Math.sin(t * .5), 560, 1);
+    backdrop(t);
+    const mood = emotions(t, S.keys);
+    const a = S.spin ? Math.floor(t * 2) / 8 : curHead(t);
+    const facing = S.spin ? spinView(a) : turn(t, S.turnAt, S.turnAt + .25, S.turnFrom, target());
+    let o = { ...mood, ...facing, seed: 3 };
+    if (S.dance === 'swim') o.walk = t * .9;
+    else if (S.dance) { const m = move(S.dance, t); o = { ...o, ...m, dy: (mood.dy || 0) + m.dy, sq: (mood.sq || 0) + m.sq, eyes: mood.eyes, mouth: mood.mouth }; }
+    if (S.hat) o.hat = S.hat;
+    if (S.emote) { o.emote = S.emote; o.emoteAge = t - (S.emoteAt || 0); o.emoteK = seg(o.emoteAge, 0, .3); }
+    seeky(960, G - 10, S.u, o);
+    camEnd();
+  }
+  stage.len = 4;
+
+  // Render loop: one frame at a time (p5.brush frames take tens to hundreds of ms), on the real clock.
+  // The model sheets are heavy, so they only redraw a few times a second.
+  let busy = false, lastSheet = -1;
+  async function tick() {
+    const now = performance.now();
+    if (playing) clock += (now - last) / 1000;
+    last = now;
+    const sheet = S.mode !== 'stage';
+    if (window.ready && !busy && (playing || dirty) && !(sheet && !dirty && clock - lastSheet < .6)) {
+      busy = true; dirty = false;
+      window.LOOP = sheet ? LOOPS[S.mode] : stage;
+      const t0 = performance.now();
+      try { await window.renderAt(sheet ? clock % 4 : clock); } catch (e) { console.error(e); }
+      if (sheet) lastSheet = clock;
+      $('tt').textContent = `${clock.toFixed(2)}s · ${Math.round(performance.now() - t0)} ${tr('msFrame')}`;
+      busy = false;
+    }
+    requestAnimationFrame(tick);
+  }
+  // core.js draws one first frame of its own on load; start after it so the two never overlap
+  const start = () => window.ready ? setTimeout(() => { last = performance.now(); tick(); }, 400) : setTimeout(start, 100);
+  start();
+})();
+</script>
+</body>
+</html>
