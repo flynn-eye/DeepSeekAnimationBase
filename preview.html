@@ -63,6 +63,7 @@
       <button data-mode="views" aria-pressed="false" data-i18n="tabViews"></button>
       <button data-mode="hats" aria-pressed="false" data-i18n="tabHats1"></button>
       <button data-mode="hats2" aria-pressed="false" data-i18n="tabHats2"></button>
+      <button data-mode="actions" aria-pressed="false" data-i18n="tabActs"></button>
     </div>
     <canvas id="out" width="1920" height="1080" role="img" data-i18n-aria="canvas"></canvas>
     <div class="status">
@@ -73,6 +74,11 @@
     <p class="hint" data-i18n="hint"></p>
   </section>
   <aside class="card" data-i18n-aria="panel">
+    <div class="group">
+      <h2 data-i18n="hActs"></h2>
+      <div class="chips" id="acts" role="group" data-i18n-aria="hActs"></div>
+      <p class="hint" data-i18n="actsHint"></p>
+    </div>
     <div class="group">
       <h2 data-i18n="hEmotions"></h2>
       <div id="emos"></div>
@@ -132,7 +138,7 @@ try {
   await loadScript('node_modules/p5.brush/dist/pixi.brush.js');
   window.PixiBrushEngine = window.pixiBrush;
   if (!window.PIXI || !window.PixiBrushEngine?.createPixiBrush) throw new Error('本地 Pixi GPU 引擎不可用 / Local Pixi GPU engine is unavailable.');
-  for (const f of ['config', 'pixi-runtime', 'core', 'seeky', 'hats', 'timeline', 'sheets']) await loadScript('src/' + f + '.js');
+  for (const f of ['config', 'pixi-runtime', 'core', 'seeky', 'hats', 'timeline', 'sheets', 'actions']) await loadScript('src/' + f + '.js');
   for (const el of document.querySelectorAll('script[data-app]')) await loadScript(null, el.textContent);
   await setup();
 } catch (e) {
@@ -150,7 +156,9 @@ const I18N = {
     storyLink: 'Watch the story demo',
     langGroup: 'Language',
     stageArea: 'Character stage', modes: 'Preview mode', canvas: 'Live render of Seeky', panel: 'Controls',
-    tabStage: 'Character stage', tabEmotions: '31 emotions', tabViews: 'Views · motion', tabHats1: 'Hats · every view 1', tabHats2: 'Hats · every view 2',
+    tabStage: 'Character stage', tabEmotions: '31 emotions', tabViews: 'Views · motion', tabHats1: 'Hats · every view 1', tabHats2: 'Hats · every view 2', tabActs: 'Daily life',
+    hActs: 'Daily life', actsHint: 'Little looping skits with props, in the spirit of the QQ pets. Picking an emotion, view or dance ends the skit.',
+    acts: { '': 'Off', eat: 'Burger', drink: 'Bubble tea', bath: 'Bath', sleep: 'Nap', study: 'Study', play: 'Beach ball', sick: 'Sick day', think: 'Deep think', fish: 'Fishing', water: 'Watering', paint: 'Painting', birthday: 'Birthday', rain: 'Rain dance', bubble: 'Giant bubble', kite: 'Kite', melon: 'Watermelon', guitar: 'Ukulele', magic: 'Magic trick', gym: 'Workout', zen: 'Meditate', pancake: 'Pancakes', sunbathe: 'Sunbathing', teeth: 'Brush teeth' },
     play: 'Play', pause: 'Pause', loading: 'Loading PixiJS GPU…', msFrame: 'ms draw',
     hint: 'PixiJS GPU rendering. Timing shows CPU/driver draw submission without waiting for GPU completion; it is not GPU execution time or measured FPS. Model sheets refresh less often. Use studio for the story and render.mjs for exports.',
     hEmotions: 'Emotions', hViews: 'Views', flip: 'Face left (flip)', spin: 'Turntable: step through the 8 key headings',
@@ -169,6 +177,7 @@ const I18N = {
       'From behind, the tail steps aside for tall hats so it never hides them',
       'The water spout on its head hops on the beat and hides under tall hats',
       'A few tiny stars wink in and out around it: the sprite\'s glitter',
+      'Daily-life skits lean on the whale: it gulps a burger with its big jaw, showers with its blowhole and balances a beach ball on its spout',
       'Clawd\'s whole API is kept: 31 emotions, 24 eyes, 16 mouths, 18 hats and face pieces, emotes and dances',
     ],
   },
@@ -178,7 +187,9 @@ const I18N = {
     storyLink: '观看故事演示',
     langGroup: '语言',
     stageArea: '形象舞台', modes: '预览模式', canvas: 'Seeky 的实时渲染画面', panel: '控制面板',
-    tabStage: '角色舞台', tabEmotions: '31 种情绪', tabViews: '视角 · 动作', tabHats1: '帽子 · 全视角 1', tabHats2: '帽子 · 全视角 2',
+    tabStage: '角色舞台', tabEmotions: '31 种情绪', tabViews: '视角 · 动作', tabHats1: '帽子 · 全视角 1', tabHats2: '帽子 · 全视角 2', tabActs: '日常动作',
+    hActs: '日常动作', actsHint: '参考 QQ 宠物做的循环小剧情，每个都带道具。点情绪、视角或舞步会结束当前动作。',
+    acts: { '': '关闭', eat: '吃汉堡', drink: '喝奶茶', bath: '洗澡', sleep: '睡觉', study: '学习', play: '玩球', sick: '生病', think: '深度思考', fish: '摸鱼', water: '浇花', paint: '画画', birthday: '过生日', rain: '雨中漫步', bubble: '吹泡泡', kite: '放风筝', melon: '吃西瓜', guitar: '弹吉他', magic: '变魔术', gym: '健身', zen: '冥想', pancake: '摊煎饼', sunbathe: '晒太阳', teeth: '刷牙' },
     play: '播放', pause: '暂停', loading: '正在加载 PixiJS GPU…', msFrame: 'ms 绘制',
     hint: 'PixiJS GPU 渲染。下方显示 CPU/驱动绘制提交耗时，不等待 GPU 完成，不等同 GPU 执行时间或实际 FPS。模型表会降低刷新频率；故事在演示页，成片可用 render.mjs 导出。',
     hEmotions: '情绪', hViews: '视角', flip: '朝左（flip）', spin: '转台：依次转过 8 个关键视角',
@@ -197,6 +208,7 @@ const I18N = {
       '从背面看，尾巴会给高帽子让路，不会挡住帽子',
       '头顶喷水孔的小水花随节拍跳动，戴高帽时自动隐藏',
       '身边会闪现几颗小星星，是"精灵"的灵气',
+      '日常动作用上了鲸鱼的特点：大嘴一口吞下汉堡，用喷水孔给自己淋浴，把沙滩球顶在水柱上',
       '沿用原 Clawd 的全部 API：31 种情绪、24 种眼睛、16 种嘴型、18 种帽子和面饰、表情符号、舞步',
     ],
   },
@@ -226,24 +238,28 @@ const tr = k => I18N[LANG][k] ?? I18N.en[k];
 
   // Interactive state. Each change records when it happened, so emotions() and turn() can act it out.
   const S = { mode: 'stage', emo: 'happy', keys: [[-99, 'happy']], view: 'front', head: 0, turnFrom: 0, turnAt: -99,
-              flip: false, spin: false, hat: '', emote: '', dance: '', u: 30, bg: 'sky' };
+              flip: false, spin: false, hat: '', emote: '', dance: '', u: 30, bg: 'sky', act: '', actAt: 0 };
   let clock = 0, playing = true, last = performance.now(), dirty = true;
 
   const $ = id => document.getElementById(id);
   const chip = (txt, pressed, on) => { const b = document.createElement('button'); b.textContent = txt; b.setAttribute('aria-pressed', pressed); b.onclick = on; return b; };
   const press = (box, b) => { box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+  // Daily-life skits (actions.js). Each restarts from its beginning when picked; anything else you pick ends it.
+  ['', ...Object.keys(ACTIONS)].forEach(n => { const b = chip(n, n === S.act, e => { press($('acts'), e.target); S.act = n; S.actAt = clock; dirty = true; }); b.dataset.act = n; $('acts').appendChild(b); });
+  const endAct = () => { if (!S.act) return; S.act = ''; press($('acts'), $('acts').querySelector('[data-act=""]')); };
 
   FAMILIES.forEach((names, fi) => {
     const t = document.createElement('div'); t.className = 'fam'; t.dataset.fam = fi; $('emos').appendChild(t);
     const box = document.createElement('div'); box.className = 'chips'; box.setAttribute('role', 'group'); box.dataset.famAria = fi;
     names.forEach(n => box.appendChild(chip(n, n === S.emo, e => {
       $('emos').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === e.target));
+      endAct();
       if (n !== S.emo) { S.keys = [[-99, S.emo], [clock, n]]; S.emo = n; dirty = true; }
     })));
     $('emos').appendChild(box);
   });
   Object.keys(HEAD).forEach(v => $('views').appendChild(chip(v, v === S.view, e => {
-    press($('views'), e.target); S.turnFrom = curHead(clock); S.turnAt = clock; S.view = v; S.head = HEAD[v]; dirty = true;
+    endAct(); press($('views'), e.target); S.turnFrom = curHead(clock); S.turnAt = clock; S.view = v; S.head = HEAD[v]; dirty = true;
   })));
   // option labels: the code names stay as they are; only the empty choice and the swim dance get translated
   const fill = (sel, list, empty) => list.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; if (!v) o.dataset.i18n = empty; if (v === 'swim') o.dataset.i18n = 'swim'; sel.appendChild(o); });
@@ -257,6 +273,7 @@ const tr = k => I18N[LANG][k] ?? I18N.en[k];
     document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = tr(el.dataset.i18nHtml); });
     document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', tr(el.dataset.i18nAria)));
     document.querySelectorAll('[data-fam]').forEach(el => { el.textContent = tr('fams')[el.dataset.fam]; });
+    document.querySelectorAll('[data-act]').forEach(el => { el.textContent = tr('acts')[el.dataset.act]; });
     document.querySelectorAll('[data-fam-aria]').forEach(el => el.setAttribute('aria-label', tr('fams')[el.dataset.famAria]));
     $('notes').replaceChildren(...tr('notes').map(s => { const li = document.createElement('li'); li.textContent = s; return li; }));
     $('play').textContent = tr(playing ? 'pause' : 'play');
@@ -271,7 +288,7 @@ const tr = k => I18N[LANG][k] ?? I18N.en[k];
   applyLang();
   $('hat').onchange = e => { S.hat = e.target.value; dirty = true; };
   $('emote').onchange = e => { S.emote = e.target.value; S.emoteAt = clock; dirty = true; };
-  $('dance').onchange = e => { S.dance = e.target.value; dirty = true; };
+  $('dance').onchange = e => { endAct(); S.dance = e.target.value; dirty = true; };
   $('bg').onchange = e => { S.bg = e.target.value; dirty = true; };
   $('size').oninput = e => { S.u = +e.target.value; $('sizeV').value = S.u; dirty = true; };
   $('flip').onchange = e => { S.turnFrom = curHead(clock); S.turnAt = clock; S.flip = e.target.checked; dirty = true; };
@@ -316,6 +333,7 @@ const tr = k => I18N[LANG][k] ?? I18N.en[k];
   function stage(t) {
     camBegin(960 + 14 * Math.sin(t * .5), 560, 1);
     backdrop(t);
+    if (S.act) { act(S.act, 960, G - 10, S.u, t - S.actAt, { hat: S.hat }); camEnd(); return; }
     const mood = emotions(t, S.keys);
     const a = S.spin ? Math.floor(t * 2) / 8 : curHead(t);
     const facing = S.spin ? spinView(a) : turn(t, S.turnAt, S.turnAt + .25, S.turnFrom, target());
