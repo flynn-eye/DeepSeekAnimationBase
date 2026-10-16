@@ -139,9 +139,6 @@ try {
   console.error(e);
   window.showPixiError(e);
 }
-for (const f of ['config', 'core', 'seeky', 'hats', 'timeline', 'sheets']) await loadScript('src/' + f + '.js');
-for (const el of document.querySelectorAll('script[data-app]')) await loadScript(null, el.textContent);
-// p5 only auto-starts global mode when setup() exists at the window "load" event; that has already passed.
 
 </script>
 <script type="text/plain" data-app>
