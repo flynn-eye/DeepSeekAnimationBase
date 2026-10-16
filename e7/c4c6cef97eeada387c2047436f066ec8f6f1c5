@@ -1,0 +1,71 @@
+src/pixi-runtime.js
+  s_409f58aafc8cdb::t_c5f85d193d4197 80
+  s_409f58aafc8cdb::t_5e89ef4815335b 1-40,42-50,64-79,81-163
+  s_409f58aafc8cdb::t_b4a36b41f2e6ef 41,51-63
+README.md
+  s_5935b0f570c45a::t_3fd098b3e5c7be 26-37
+  s_5935b0f570c45a::t_80aa607fb19093 171-174
+  s_5935b0f570c45a::t_1fac2a2cc78d83 7-8
+  s_5935b0f570c45a::t_83d8efdaffa0d2 188
+studio.html
+  s_409f58aafc8cdb::t_ed5b4b24a7ea53 2,5-6,12-13,16-19,21-38,42-45,49-54,56,58,60-67,69-89,91-106
+  s_409f58aafc8cdb::t_a4bd72c7986e3b 14
+  s_409f58aafc8cdb::t_6913d0b6befb95 15,46,68,90
+README.zh-CN.md
+  s_5935b0f570c45a::t_a5b720d0a1b618 7-8
+  s_5935b0f570c45a::t_a3e7566f25a3a9 188
+  s_5935b0f570c45a::t_b0ca33afe9e09c 171-174
+  s_5935b0f570c45a::t_7b476e2c0bfe0e 26-37
+preview.html
+  s_409f58aafc8cdb::t_ed5b4b24a7ea53 122
+  s_409f58aafc8cdb::t_6913d0b6befb95 157-158,185-186
+  h_eaf1688e5af44e 145
+  s_409f58aafc8cdb::t_484f826c913d33 19,51,57,111-121,125,131-137,140,153,181,266,335-336,347-348,350,355
+src/core.js
+  s_409f58aafc8cdb::t_b4a36b41f2e6ef 252-259,264-270
+  s_409f58aafc8cdb::t_c5f85d193d4197 200
+  s_409f58aafc8cdb::t_726454a4a450f3 1,103,108-109,112-113,130,177-179,196-197,211,213-214,219,225-226,260-263,271-273,275,280,282-283,285-296,306,313,318
+vendor/p5.brush/pixi.brush.js
+  s_5935b0f570c45a::t_5decaded4b6851 1-2
+dev.mjs
+  s_409f58aafc8cdb::t_fe0f7662663ada 1-96
+vendor/p5.brush/LICENSE.md
+  s_5935b0f570c45a::t_5decaded4b6851 1-21
+ANIMATION_GUIDE.md
+  s_5935b0f570c45a::t_4b89181dc8260b 220
+  s_5935b0f570c45a::t_1e859fa38f425c 227
+.github/workflows/pages.yml
+  s_5935b0f570c45a::t_d10bbf1e7da879 17-20,29-37,40,43-45
+package.json
+  s_5935b0f570c45a::t_ae34ccefbb1279 9
+  s_409f58aafc8cdb::t_5e89ef4815335b 6,8,14-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.50-trip",
+  "base_commit_sha": "e7c4c6cef97eeada387c2047436f066ec8f6f1c5",
+  "prompts": {},
+  "humans": {
+    "h_eaf1688e5af44e": {
+      "author": "zhouy3 <zhouy3@trip.com>"
+    }
+  },
+  "sessions": {
+    "s_409f58aafc8cdb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a13e11-eab1-7dd0-85b2-17bb60c921eb",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "zhouy3 <zhouy3@trip.com>"
+    },
+    "s_5935b0f570c45a": {
+      "agent_id": {
+        "tool": "chengxiaobang",
+        "id": "s_ogbzvd7i72t5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "zhouy3 <zhouy3@trip.com>"
+    }
+  }
+}
