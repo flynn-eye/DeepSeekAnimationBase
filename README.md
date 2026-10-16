@@ -2,14 +2,46 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-A starter kit for animating a hand-painted character frame by frame with [p5.js](https://p5js.org) and [p5.brush](https://github.com/acamposuribe/p5.brush). This version swaps the original mascot, Clawd, for **Seeky, the DeepSeek sprite**: a little floating whale in DeepSeek blue.
+A starter kit for animating a hand-painted character frame by frame with [PixiJS](https://pixijs.com) and the independent GPU engine in [p5.brush](https://github.com/acamposuribe/p5.brush). This version swaps the original mascot, Clawd, for **Seeky, the DeepSeek sprite**: a little floating whale in DeepSeek blue.
+
+**Try it online:** [character preview](https://flynn-eye.github.io/DeepSeekAnimationBase/) · [11-second story demo](https://flynn-eye.github.io/DeepSeekAnimationBase/studio.html) (needs a WebGL2 browser).
+
+## Run the Pixi version
+
+```bash
+# First setup on a new machine: build the sibling GPU brush checkout.
+(cd ../p5.brush && npm install && npm run build)
+npm install
+npm run dev
+```
+
+`package.json` uses `p5.brush: file:../p5.brush`, the local Pixi rewrite in the sibling directory. This GPU engine is **not** the public upstream `p5.brush@2.2.3` release; GitHub links credit the upstream project. Keep both repositories side by side. On this already-built workspace, skip the first build command; after changing the brush sources, rebuild the sibling checkout before reloading.
+
+Open the local address printed by the server. The default page is the interactive character preview; its **Watch the story demo** link opens the 11-second film in [studio.html](studio.html). The studio supports play/pause and timeline scrubbing. Libraries load locally from `node_modules`; the pages no longer load p5.js or remote JavaScript dependencies. Use a browser with WebGL2 support.
+
+The character, poses, emotions, hats, scene timing and 12-drawings-per-second line boil are retained. Brushes and watercolor use new GPU algorithms, so texture and pigment appearance are **not pixel-identical** to the earlier p5 renders. The images in this README remain reference artwork from that earlier version. The page reports **PixiJS · GPU** and CPU/driver draw submission time, without waiting for GPU completion. This is neither GPU execution time nor measured FPS; it does not establish a performance improvement or promise a fixed frame rate.
+
+Live playback calls `window.renderFrame(t)` without encoding an image each frame. `window.renderAt(t, type, quality)`, `renderSheet(...)`, `window.ready`, and `gpuInfo()` remain available for the offline renderer. The story/model-sheet logic still uses the shared character API; [src/pixi-runtime.js](src/pixi-runtime.js) now supplies the rendering backend.
+
+### GitHub Pages
+
+Every push to `main` deploys the preview with [.github/workflows/pages.yml](.github/workflows/pages.yml). The runner has no sibling `../p5.brush`, so it can't run `npm install` for this project. Instead it fetches `pixi.js` at the version pinned in the workflow (`PIXI_VERSION`, keep it equal to `package-lock.json`) and takes the GPU brush from the build committed in [vendor/p5.brush/](vendor/p5.brush/). Both files are copied into the same `node_modules/...` paths the pages load locally, so `preview.html` (served as `index.html`), `studio.html` and `src/` deploy unchanged.
+
+After rebuilding `../p5.brush`, refresh the vendored copy and commit it, or Pages keeps the old brushes:
+
+```bash
+(cd ../p5.brush && npm run build)
+npm run vendor:brush
+```
+
+In the repository settings, **Pages → Source** must be **GitHub Actions**.
 
 ![Seeky's 31 emotions (animated)](docs/emotions.webp)
 
 ## Credits and origin
 
 > **This project is not original work.** The original author is **John Heibel**, and the original repository is [JohnHeibel/ClaudeAnimationBase](https://github.com/JohnHeibel/ClaudeAnimationBase) (MIT license).
-> The rendering engine, the brush and paper textures, the animation helpers, the emotion system, the offline renderer and the method in [ANIMATION_GUIDE.md](ANIMATION_GUIDE.md) all come from him. The original project grew out of his music video [I'm Upping My P(doom)](https://github.com/JohnHeibel/PDoomVideo) and an analysis of what language models do well and badly when they animate.
+> The original p5 rendering engine, brush and paper approach, animation helpers, emotion system, offline renderer and method in [ANIMATION_GUIDE.md](ANIMATION_GUIDE.md) come from him. This version additionally migrates the runtime to PixiJS and the independent GPU brush engine. The original project grew out of his music video [I'm Upping My P(doom)](https://github.com/JohnHeibel/PDoomVideo) and an analysis of what language models do well and badly when they animate.
 > The headless Linux rendering and the fix for outlines in zoomed-in shots come from contributor Clement Dumas ([@Butanium](https://github.com/Butanium)).
 >
 > I only borrowed the approach: I redesigned the character and added an interactive preview page. See [LICENSE](LICENSE); the original author's copyright notice is kept as the MIT license requires.
@@ -80,7 +112,7 @@ Clawd's whole API is still there: 5 key views, 31 emotions, 24 eyes, 16 mouths, 
 
 ## The preview page
 
-Run `npm install`, then open [preview.html](preview.html) in Chrome. It renders Seeky live with the real brush engine. The page is in English by default; the switch at the top right changes it to Chinese and remembers your choice, and `preview.html?lang=zh` opens it in Chinese directly.
+Run `npm install` and `npm run dev`, then open the local preview address in Chrome. It renders Seeky live with the Pixi GPU brush engine. The language switch remembers your choice; `preview.html?lang=zh` opens Chinese and `?lang=en` opens English directly.
 
 ![The preview page](docs/screenshots/preview-page.jpg)
 
@@ -95,7 +127,7 @@ Run `npm install`, then open [preview.html](preview.html) in Chrome. It renders 
 
 ![The hats-in-every-view tab](docs/screenshots/preview-hats.jpg)
 
-Watercolour fills are heavy on the GPU. A frame of the character stage takes about 0.1–0.3 s and a frame of a model sheet a few seconds, so the sheet tabs redraw less often. Render finished videos offline, as below.
+Frame cost depends on the selected character, sheet and GPU. Model-sheet tabs redraw less often than the character stage; the status shows drawing submission time, rather than GPU completion or actual FPS. Render finished videos offline, as below.
 
 ## Make an animation
 
@@ -107,7 +139,7 @@ The model storyboards first, builds shot by shot, renders contact sheets to chec
 
 ## Run it yourself
 
-You need Node.js, Google Chrome and ffmpeg.
+Preview needs Node.js and a WebGL2 browser. Offline MP4 export also needs Google Chrome and ffmpeg.
 
 ```bash
 npm install
@@ -115,9 +147,9 @@ node render.mjs --clip --out=out/video.mp4          # render the 11-second demo
 node render.mjs --loop=emotions --sheet=1 --cols=1 --w=1920 --out=out/emotions.jpg   # the emotions model sheet
 ```
 
-- Open [studio.html](studio.html) in Chrome to scrub through the demo; add `?loop=emotions`, `?loop=views`, `?loop=hats` or `?loop=hats2` to see a model sheet.
+- Open `studio.html` on the same local server to play or scrub the demo; add `?loop=emotions`, `?loop=views`, `?loop=hats` or `?loop=hats2` to see a model sheet. `?t=4.4` opens a paused frame; `?autoplay=0` disables autoplay.
 - If Chrome isn't in a standard location, pass `--chrome=<path>` or set `CHROME_PATH`.
-- Without a dedicated GPU, p5.brush's watercolour fills take seconds per frame; you can ask the model to use other fills instead.
+- Live playback and offline export use the same Pixi scene renderer. `studio.html?render` initializes it without starting the UI playback loop, so the CLI can request frames in any order.
 - On Linux, `render.mjs` adds `--no-sandbox`. With no GPU at all, add `--soft-gl`; on a headless NVIDIA machine, add `--gpu-angle=gl-egl` (or `vulkan`), and run `node gpu_probe.mjs <chrome path>` to see which renderer you get.
 
 ## Use it in code
@@ -136,10 +168,14 @@ Options only Seeky has: `hover` (float height), `tailWag` (extra tail swing), `s
 | Path | What it is |
 |---|---|
 | [ANIMATION_GUIDE.md](ANIMATION_GUIDE.md) | The rules, the workflow and the full API. Read it first (written by the original author, updated for the new character) |
-| [preview.html](preview.html) | Interactive character preview |
+| [preview.html](preview.html) | Interactive character preview (the Pages home page) |
+| [studio.html](studio.html) | Story demo player: play, scrub, model-sheet loops; also the page `render.mjs` drives |
+| [dev.mjs](dev.mjs) | Local static server for `npm run dev` (127.0.0.1 only) |
+| [vendor/p5.brush/](vendor/p5.brush/) | Built Pixi GPU brush bundle used by GitHub Pages (`npm run vendor:brush` refreshes it) |
 | [src/seeky.js](src/seeky.js) | Seeky: views, emotions, eyes, mouths, emotes, dances |
 | [src/hats.js](src/hats.js) | Hats and face pieces, each drawn for the view it is seen from |
 | [src/core.js](src/core.js) | Painting, timing, motion helpers, camera, light, paper |
+| [src/pixi-runtime.js](src/pixi-runtime.js) | PixiJS rendering, GPU brushes, transforms, ordered composition and export |
 | [src/timeline.js](src/timeline.js) | Shots, loops and the brush-wipe transition |
 | [src/config.js](src/config.js) | Length and tempo |
 | [src/scenes/](src/scenes/) | Your video goes here (the demo is an example) |
@@ -148,6 +184,8 @@ Options only Seeky has: `hover` (float height), `tailWag` (extra tail swing), `s
 
 ## Changes from the original
 
+- Browser rendering now uses PixiJS v8 and the independent WebGL2 brush engine, with local dependencies and no p5.js runtime. The preview retains its original layout and controls; studio adds playback alongside scrubbing, and offline rendering keeps its public page contract.
+- `npm run dev` serves the pages locally; GitHub Pages deploys the same pages with PixiJS from npm and the vendored brush build.
 - `src/clawd.js` is now `src/seeky.js`. Everything about the look is rewritten: the body, tail, flippers, spout, stars, round eyes and the way the mouth opens. The emotion, emote and dance logic is the original author's.
 - The side view has its own whale outline (`top / bot / bellyUp / tail` in `VIEWS.side`), with the body, stalk and fluke as one continuous outline.
 - In the back and 3/4 back views the tail is drawn in front of the body (`tailFront`), growing out of the lower rear; in the other views it is behind the body.

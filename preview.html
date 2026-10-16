@@ -16,7 +16,7 @@
   .card { background: var(--card); border-radius: 14px; box-shadow: 0 2px 10px rgba(46, 70, 194, .08); padding: 14px 16px; }
   .stage { padding: 10px; }
   #out { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; border-radius: 10px; background: var(--paper); }
-  .p5Canvas { display: none !important; }
+  .page-link { color: var(--ds-dk); font-weight: 600; }
   .tabs { display: flex; gap: 6px; margin: 0 0 10px; flex-wrap: wrap; }
   .status { display: flex; gap: 12px; align-items: center; margin-top: 8px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .status input[type=range] { display: none; }
@@ -48,12 +48,13 @@
 <header>
   <h1 data-i18n="title"></h1>
   <p data-i18n="intro"></p>
+  <a class="page-link" id="storyLink" href="studio.html" data-i18n="storyLink">Watch the story demo</a>
   <div class="lang" role="group" data-i18n-aria="langGroup">
     <button data-lang="en" lang="en">English</button>
     <button data-lang="zh" lang="zh-CN">中文</button>
   </div>
 </header>
-<div class="warn" id="warn" role="alert" data-i18n-html="warn"></div>
+<div class="warn" id="warn" role="alert"></div>
 <main>
   <section class="card stage" data-i18n-aria="stageArea">
     <div class="tabs" role="group" data-i18n-aria="modes">
@@ -107,28 +108,41 @@
   </aside>
 </main>
 <script type="module">
-// p5 and p5.brush come from the jsDelivr CDN as ES modules (pinned versions, no npm install or build step).
-// p5.brush registers itself on the global `p5` while it evaluates, so p5 must be on window before brush is imported.
-const CDN = 'https://cdn.jsdelivr.net/npm';
+// The character and UI scripts keep their existing shared scope; only the
+// rendering backend changes. Everything is served from the local project.
+window.CUSTOM_PLAYBACK = true;
+window.showPixiError = error => {
+  const message = error?.message || String(error);
+  window.__pixiPreviewError = message;
+  const warning = document.getElementById('warn');
+  warning.textContent = '无法启动或渲染 Pixi 预览 / Could not load or render the Pixi preview. 请先运行 npm install 和 npm run dev，并使用显示的本地地址 / Run npm install and npm run dev, then open the local URL.\n' + message;
+  warning.style.display = 'block';
+};
+window.addEventListener('unhandledrejection', event => window.showPixiError(event.reason));
+window.addEventListener('error', event => { if (event.message) window.showPixiError(event.error || event.message); });
 const loadScript = (src, text) => new Promise((ok, fail) => {
   const s = document.createElement('script');
-  if (src) { s.src = src; s.onload = ok; s.onerror = () => fail(new Error('failed to load ' + src)); }
+  if (src) { s.src = src; s.onload = ok; s.onerror = () => fail(new Error('无法加载本地脚本 / Failed to load local script: ' + src)); }
   else { s.textContent = text; }
   document.body.appendChild(s);
   if (!src) ok();
 });
 try {
-  window.p5 = (await import(CDN + '/p5@2.3.3/lib/p5.esm.min.js')).default;
-  window.brush = await import(CDN + '/p5.brush@2.2.3/dist/p5.brush.esm.js');
+  await loadScript('node_modules/pixi.js/dist/pixi.min.js');
+  await loadScript('node_modules/p5.brush/dist/pixi.brush.js');
+  window.PixiBrushEngine = window.pixiBrush;
+  if (!window.PIXI || !window.PixiBrushEngine?.createPixiBrush) throw new Error('本地 Pixi GPU 引擎不可用 / Local Pixi GPU engine is unavailable.');
+  for (const f of ['config', 'pixi-runtime', 'core', 'seeky', 'hats', 'timeline', 'sheets']) await loadScript('src/' + f + '.js');
+  for (const el of document.querySelectorAll('script[data-app]')) await loadScript(null, el.textContent);
+  await setup();
 } catch (e) {
   console.error(e);
-  document.getElementById('warn').style.display = 'block';
-  throw e;
+  window.showPixiError(e);
 }
 for (const f of ['config', 'core', 'seeky', 'hats', 'timeline', 'sheets']) await loadScript('src/' + f + '.js');
 for (const el of document.querySelectorAll('script[data-app]')) await loadScript(null, el.textContent);
 // p5 only auto-starts global mode when setup() exists at the window "load" event; that has already passed.
-if (!p5.instance) new p5();
+
 </script>
 <script type="text/plain" data-app>
 // UI strings. English is the default; ?lang=zh (or the switch in the header, remembered in localStorage) picks Chinese.
@@ -136,12 +150,12 @@ const I18N = {
   en: {
     title: 'Seeky · the DeepSeek Sprite', pageTitle: 'Seeky · DeepSeek Sprite Preview',
     intro: 'A little floating whale in DeepSeek blue, painted frame by frame with watercolour brushes. Use the panel on the right to change its emotion, view, hat and moves.',
+    storyLink: 'Watch the story demo',
     langGroup: 'Language',
-    warn: 'p5 / p5.brush could not be loaded from the jsDelivr CDN. Check your network connection and reload the page.',
     stageArea: 'Character stage', modes: 'Preview mode', canvas: 'Live render of Seeky', panel: 'Controls',
     tabStage: 'Character stage', tabEmotions: '31 emotions', tabViews: 'Views · motion', tabHats1: 'Hats · every view 1', tabHats2: 'Hats · every view 2',
-    play: 'Play', pause: 'Pause', loading: 'Loading…', msFrame: 'ms/frame',
-    hint: 'Tip: p5.brush watercolour fills are heavy, so a few frames a second on integrated graphics is normal. Render finished videos offline with render.mjs.',
+    play: 'Play', pause: 'Pause', loading: 'Loading PixiJS GPU…', msFrame: 'ms draw',
+    hint: 'PixiJS GPU rendering. Timing shows CPU/driver draw submission without waiting for GPU completion; it is not GPU execution time or measured FPS. Model sheets refresh less often. Use studio for the story and render.mjs for exports.',
     hEmotions: 'Emotions', hViews: 'Views', flip: 'Face left (flip)', spin: 'Turntable: step through the 8 key headings',
     hOutfit: 'Outfits and moves', hat: 'Hat', emote: 'Emote', dance: 'Dance', size: 'Size u', bg: 'Background',
     bgSky: 'Clear sky', bgSea: 'Seaside', bgNight: 'Night sky', bgPaper: 'Plain paper', none: 'None', noDance: 'No dance', swim: 'Swim (walk)',
@@ -164,12 +178,12 @@ const I18N = {
   zh: {
     title: 'Seeky · DeepSeek 小精灵', pageTitle: 'Seeky · DeepSeek 小精灵形象预览',
     intro: '一只漂浮的 DeepSeek 蓝小鲸鱼，用水彩笔刷逐帧手绘。点右侧按钮切换情绪、视角、帽子和动作。',
+    storyLink: '观看故事演示',
     langGroup: '语言',
-    warn: '无法从 jsDelivr CDN 加载 p5 / p5.brush。请检查网络连接后刷新页面。',
     stageArea: '形象舞台', modes: '预览模式', canvas: 'Seeky 的实时渲染画面', panel: '控制面板',
     tabStage: '角色舞台', tabEmotions: '31 种情绪', tabViews: '视角 · 动作', tabHats1: '帽子 · 全视角 1', tabHats2: '帽子 · 全视角 2',
-    play: '播放', pause: '暂停', loading: '加载中…', msFrame: 'ms/帧',
-    hint: '提示：p5.brush 的水彩填充较重，集显上大约每秒几帧，这是正常的；成片用 render.mjs 离线渲染。',
+    play: '播放', pause: '暂停', loading: '正在加载 PixiJS GPU…', msFrame: 'ms 绘制',
+    hint: 'PixiJS GPU 渲染。下方显示 CPU/驱动绘制提交耗时，不等待 GPU 完成，不等同 GPU 执行时间或实际 FPS。模型表会降低刷新频率；故事在演示页，成片可用 render.mjs 导出。',
     hEmotions: '情绪', hViews: '视角', flip: '朝左（flip）', spin: '转台：依次转过 8 个关键视角',
     hOutfit: '装扮与动作', hat: '帽子', emote: '表情符号', dance: '舞步', size: '大小 u', bg: '背景',
     bgSky: '晴空', bgSea: '海边', bgNight: '夜空', bgPaper: '纯纸面', none: '无', noDance: '不跳舞', swim: '游动（walk）',
@@ -249,6 +263,7 @@ const tr = k => I18N[LANG][k] ?? I18N.en[k];
     document.querySelectorAll('[data-fam-aria]').forEach(el => el.setAttribute('aria-label', tr('fams')[el.dataset.famAria]));
     $('notes').replaceChildren(...tr('notes').map(s => { const li = document.createElement('li'); li.textContent = s; return li; }));
     $('play').textContent = tr(playing ? 'pause' : 'play');
+    $('storyLink').href = 'studio.html?lang=' + LANG;
     document.querySelectorAll('.lang button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === LANG));
   }
   document.querySelectorAll('.lang button').forEach(b => b.onclick = () => {
@@ -317,8 +332,8 @@ const tr = k => I18N[LANG][k] ?? I18N.en[k];
   }
   stage.len = 4;
 
-  // Render loop: one frame at a time (p5.brush frames take tens to hundreds of ms), on the real clock.
-  // The model sheets are heavy, so they only redraw a few times a second.
+  // One render at a time on the real clock; preview frames are never PNG-encoded.
+  // The model sheets redraw less often than the single-character stage.
   let busy = false, lastSheet = -1;
   async function tick() {
     const now = performance.now();
@@ -329,15 +344,15 @@ const tr = k => I18N[LANG][k] ?? I18N.en[k];
       busy = true; dirty = false;
       window.LOOP = sheet ? LOOPS[S.mode] : stage;
       const t0 = performance.now();
-      try { await window.renderAt(sheet ? clock % 4 : clock); } catch (e) { console.error(e); }
+      try { await window.renderFrame(sheet ? clock % (window.LOOP.len || 4) : clock); }
+      catch (e) { console.error(e); window.showPixiError(e); playing = false; $('play').textContent = tr('play'); $('play').setAttribute('aria-pressed', false); }
       if (sheet) lastSheet = clock;
-      $('tt').textContent = `${clock.toFixed(2)}s · ${Math.round(performance.now() - t0)} ${tr('msFrame')}`;
+      $('tt').textContent = `PixiJS · GPU · ${clock.toFixed(2)}s · ${Math.round(performance.now() - t0)} ${tr('msFrame')}`;
       busy = false;
     }
     requestAnimationFrame(tick);
   }
-  // core.js draws one first frame of its own on load; start after it so the two never overlap
-  const start = () => window.ready ? setTimeout(() => { last = performance.now(); tick(); }, 400) : setTimeout(start, 100);
+  const start = () => window.__pixiPreviewError ? undefined : window.ready ? (last = performance.now(), tick()) : setTimeout(start, 100);
   start();
 })();
 </script>

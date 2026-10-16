@@ -1,39 +1,109 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Seeky studio</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=block">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seeky · PixiJS story studio</title>
 <style>
   html, body { margin: 0; background: #1b1820; color: #eee; font: 13px system-ui, sans-serif; }
   main { padding: 12px; display: grid; gap: 8px; }
   #out { width: min(100%, 1280px); aspect-ratio: 16 / 9; height: auto; background: #F3EBDC; }
-  .p5Canvas { display: none !important; }
   .bar { display: flex; gap: 10px; align-items: center; max-width: 1280px; }
-  #scrub { flex: 1; }
-  #tt { font-variant-numeric: tabular-nums; min-width: 190px; }
+  #scrub { flex: 1; min-width: 40px; }
+  #tt { font-variant-numeric: tabular-nums; }
+  @media (max-width: 600px) { .bar { flex-wrap: wrap; } #tt { flex-basis: 100%; } }
+  #timingNote { margin: 0; color: #bcb5c6; }
+  a { color: #9DAEFF; }
+  button { border: 1px solid #9DAEFF; border-radius: 6px; padding: 5px 12px; background: #2E46C2; color: #fff; cursor: pointer; font: inherit; }
+  button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #9DAEFF; outline-offset: 3px; }
+  #warn { display: none; max-width: 1252px; padding: 12px; background: #FFF4E5; color: #8A4B00; white-space: pre-wrap; }
 </style>
-<script src="node_modules/p5/lib/p5.min.js"></script>
-<script src="node_modules/p5.brush/dist/p5.brush.js"></script>
+<script>
+  window.CUSTOM_PLAYBACK = true;
+  window.showPixiError = error => {
+    const message = error?.message || String(error);
+    window.__pixiStudioError = message;
+    const show = () => {
+      const warning = document.getElementById('warn');
+      warning.textContent = '无法启动或渲染 Pixi 演示 / Could not load or render the Pixi demo. 请先运行 npm install 和 npm run dev，并使用显示的本地地址 / Run npm install and npm run dev, then open the local URL.\n' + message;
+      warning.style.display = 'block';
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show, { once: true }); else show();
+  };
+  window.addEventListener('error', event => { if (event.message) window.showPixiError(event.error || event.message); });
+  window.addEventListener('unhandledrejection', event => window.showPixiError(event.reason));
+</script>
+<script src="node_modules/pixi.js/dist/pixi.min.js" onerror="showPixiError('无法加载本地 PixiJS / Failed to load local PixiJS.');"></script>
+<script src="node_modules/p5.brush/dist/pixi.brush.js" onerror="showPixiError('无法加载本地 GPU 笔刷 / Failed to load local GPU brushes.');"></script>
+<script>window.PixiBrushEngine = window.pixiBrush;</script>
 </head>
 <body>
 <main>
-  <canvas id="out" width="1920" height="1080"></canvas>
-  <div class="bar"><input id="scrub" type="range" min="0" max="11" step="0.0417" value="0"><span id="tt">loading…</span></div>
+  <nav class="bar"><a id="previewLink" href="preview.html">Character preview · 角色预览</a><span id="storyTitle">The fallen star · 坠落的星星</span></nav>
+  <div id="warn" role="alert"></div>
+  <canvas id="out" width="1920" height="1080" role="img" aria-label="Seeky story animation"></canvas>
+  <div class="bar"><button id="play" aria-pressed="false">Play · 播放</button><input id="scrub" type="range" min="0" max="11" step="0.0417" value="0" aria-label="Animation time"><span id="tt">Loading PixiJS GPU… · 正在加载…</span></div>
+  <p id="timingNote"></p>
 </main>
 <!-- engine -->
-<script src="src/config.js"></script>
-<script src="src/core.js"></script>
-<script src="src/seeky.js"></script>
-<script src="src/hats.js"></script>
-<script src="src/timeline.js"></script>
+<script src="src/config.js" onerror="showPixiError('无法加载 config.js / Failed to load config.js');"></script>
+<script src="src/pixi-runtime.js" onerror="showPixiError('无法加载 pixi-runtime.js / Failed to load pixi-runtime.js');"></script>
+<script src="src/core.js" onerror="showPixiError('无法加载 core.js / Failed to load core.js');"></script>
+<script src="src/seeky.js" onerror="showPixiError('无法加载 seeky.js / Failed to load seeky.js');"></script>
+<script src="src/hats.js" onerror="showPixiError('无法加载 hats.js / Failed to load hats.js');"></script>
+<script src="src/timeline.js" onerror="showPixiError('无法加载 timeline.js / Failed to load timeline.js');"></script>
 <!-- reference sheets (standalone loops) -->
-<script src="src/sheets.js"></script>
+<script src="src/sheets.js" onerror="showPixiError('无法加载 sheets.js / Failed to load sheets.js');"></script>
 <!-- your video: add a script per scene file, in order -->
-<script src="src/scenes/demo.js"></script>
+<script src="src/scenes/demo.js" onerror="showPixiError('无法加载 demo.js / Failed to load demo.js');"></script>
 <script>
-  // Open studio.html?loop=emotions (or views) to scrub a standalone loop instead of the video.
-  const q = new URLSearchParams(location.search).get('loop'); if (q && LOOPS[q]) window.LOOP = LOOPS[q];
+  const params = new URLSearchParams(location.search);
+  const q = params.get('loop'); if (q && LOOPS[q]) window.LOOP = LOOPS[q];
+  let language = params.get('lang');
+  if (language !== 'zh' && language !== 'en') { try { language = localStorage.getItem('seeky-lang'); } catch {} }
+  const zh = language === 'zh'; document.documentElement.lang = zh ? 'zh-CN' : 'en';
+  const previewLink = document.getElementById('previewLink'); previewLink.href = 'preview.html?lang=' + (zh ? 'zh' : 'en'); previewLink.textContent = zh ? '← 角色交互预览' : '← Interactive character preview';
+  document.getElementById('storyTitle').textContent = q && LOOPS[q] ? (zh ? '模型表 · ' : 'Model sheet · ') + q : (zh ? '坠落的星星 · 11 秒故事演示' : 'The fallen star · 11-second story demo');
+  document.getElementById('out').setAttribute('aria-label', zh ? 'Seeky 故事动画' : 'Seeky story animation');
+  document.getElementById('timingNote').textContent = zh ? '显示 CPU/驱动绘制提交耗时，不等待 GPU 完成，不等同 GPU 执行时间或实际 FPS。' : 'Timing shows CPU/driver draw submission, without waiting for GPU completion. It is not GPU execution time or measured FPS.';
+  const scrub = document.getElementById('scrub'), play = document.getElementById('play'), label = document.getElementById('tt');
+  scrub.setAttribute('aria-label', zh ? '动画时间' : 'Animation time');
+  const updatePlay = value => { play.textContent = value ? (zh ? '暂停' : 'Pause') : (zh ? '播放' : 'Play'); play.setAttribute('aria-pressed', value); };
+  async function startStudio() {
+    if (!window.PIXI || !window.PixiBrushEngine?.createPixiBrush) throw new Error('本地 Pixi GPU 引擎不可用 / Local Pixi GPU engine is unavailable.');
+    await setup();
+    if (params.has('render')) { play.hidden = true; return; }
+    const duration = window.LOOP?.len || DUR;
+    scrub.max = duration;
+    let time = Math.max(0, Math.min(duration, Number(params.get('t')) || 0));
+    let playing = !params.has('t') && params.get('autoplay') !== '0', busy = false, desired = null, last = performance.now();
+    updatePlay(playing);
+    const requestFrame = value => {
+      desired = value;
+      if (busy) return;
+      const run = async () => {
+        busy = true;
+        try {
+          while (desired !== null) {
+            const frameTime = desired; desired = null;
+            const start = performance.now(); await window.renderFrame(frameTime);
+            scrub.value = time; label.textContent = `PixiJS · GPU · ${frameTime.toFixed(2)} / ${duration.toFixed(2)}s · ${Math.round(performance.now() - start)} ${zh ? 'ms 绘制' : 'ms draw'}`;
+          }
+        } catch (error) { playing = false; desired = null; updatePlay(false); window.showPixiError(error); }
+        finally { busy = false; }
+      };
+      run();
+    };
+    play.onclick = () => { playing = !playing; if (playing && time >= duration) time = 0; last = performance.now(); updatePlay(playing); requestFrame(time); };
+    scrub.oninput = () => { time = +scrub.value; last = performance.now(); requestFrame(time); };
+    const tick = now => {
+      if (playing) { time = (time + (now - last) / 1000) % duration; requestFrame(time); }
+      last = now;
+      requestAnimationFrame(tick);
+    };
+    requestFrame(time); requestAnimationFrame(tick);
+  }
+  startStudio().catch(error => { console.error(error); window.showPixiError(error); });
 </script>
 </body>
 </html>

@@ -14,6 +14,10 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  # Keep in sync with the pixi.js version in package-lock.json.
+  PIXI_VERSION: 8.17.1
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -22,11 +26,23 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # package.json points p5.brush at the sibling ../p5.brush checkout, which does not exist on
+      # the runner, so the project's own install cannot run here. PixiJS comes from the public
+      # registry at the pinned version; the GPU brush is the build vendored in vendor/p5.brush.
+      - name: Fetch PixiJS
+        run: npm install --prefix "$RUNNER_TEMP/deps" --no-save --no-package-lock --registry=https://registry.npmjs.org "pixi.js@$PIXI_VERSION"
+      # The pages load node_modules/... paths, so the site mirrors that layout.
       - name: Assemble site
         run: |
-          mkdir _site
+          mkdir -p _site/node_modules/pixi.js/dist _site/node_modules/p5.brush/dist
           cp -r src _site/src
           cp preview.html _site/index.html
+          cp preview.html studio.html _site/
+          cp "$RUNNER_TEMP/deps/node_modules/pixi.js/dist/pixi.min.js" _site/node_modules/pixi.js/dist/
+          cp vendor/p5.brush/pixi.brush.js vendor/p5.brush/pixi.brush.js.map _site/node_modules/p5.brush/dist/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

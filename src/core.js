@@ -1,4 +1,4 @@
-// core.js: constants, helpers, paper, paint wrapper, compositing and render hooks.
+// core.js: pure animation helpers and the Pixi GPU drawing/export lifecycle.
 // Length and rhythm come from PROJECT in config.js.
 const W = 1920, H = 1080;
 const BPM = PROJECT.bpm, BEAT = 60 / BPM, OFF = PROJECT.offset || 0, BOIL = 12, DUR = PROJECT.duration;
@@ -100,17 +100,17 @@ function toScreen(x, y, cam = CAM) {
 // ---------- full-frame effects (call outside a camera, in screen space) ----------
 function flash(k, col = '#FFFDF6') { if (k > .01) paint(rectPts(-60, -60, W + 120, H + 120), { wash: col, washOp: 255 * clamp(k), ink: null }); }
 // Light: glow(x, y, r, col, a) ADDS a soft halo of light for anything that shines (stars, lamps, fireflies, magic).
-// p5.brush mixes every colour like pigment, so yellow painted over blue turns green and light can't be painted; this
+// The brush engine mixes colours like pigment, so yellow over blue turns green and light needs additive blending; this
 // is the one non-paint mark in the kit. It lands on what's painted so far, under anything painted after it, follows
 // the camera, and boils a little. Keep a = 1 on dark grounds; on light grounds it barely shows (as light would).
 function glow(x, y, r, col = '#FFC766', a = 1) {
   if (a <= 0 || r < 1) return;
-  flushBrush();
-  const c = color(col), rr = r * (1 + jit(.03));
-  push(); blendMode(ADD); tint(red(c), green(c), blue(c), 150 * clamp(a)); image(glowTex, x - rr, y - rr, 2 * rr, 2 * rr); noTint(); blendMode(BLEND); pop();
+  const rr = r * (1 + jit(.03));
+  PixiRuntime.light(x, y, rr, col, clamp(a));
 }
 function makeGlowTex() {
-  const g = createGraphics(256, 256); g.pixelDensity(1); const c = g.drawingContext, gr = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+  const g = document.createElement('canvas'); g.width = g.height = 256;
+  const c = g.getContext('2d'), gr = c.createRadialGradient(128, 128, 0, 128, 128, 128);
   [[0, 1], [.18, .8], [.45, .32], [.75, .08], [1, 0]].forEach(([s, a]) => gr.addColorStop(s, `rgba(255,255,255,${a})`));
   c.fillStyle = gr; c.fillRect(0, 0, 256, 256);
   return g;
@@ -127,7 +127,7 @@ function irisShape(pts, col = PAL.ink, far = 4000) {
 }
 function iris(cx, cy, r, col = PAL.ink) { if (r < 4) paint(rectPts(-60, -60, W + 120, H + 120), { wash: col, ink: null }); else irisShape(ellPts(cx, cy, r, r, 40), col); }
 
-let T = 0, paperG = null, grainC = null, letG = null, glowTex = null, outC = null, outX = null;
+let T = 0, paperG = null, grainC = null, glowTex = null, outC = null;
 let LETTERS = [];
 
 // ---------- geometry ----------
@@ -174,16 +174,9 @@ function ribbon(P, w0, w1 = w0) {
 
 // ---------- paint wrapper ----------
 // One call = one painted shape: optional flat wash, optional watercolor fill, optional hatch, optional ink outline.
-// p5.brush 2.2.3 loses strokes drawn far from the origin under a zoomed camera (from zoom ~2, an outline or a line
-// leaves only a dot at its first vertex), so every shape and line is drawn around its own centre.
-function centred(pts, draw) {
-  if (!pts.length) return;
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const [x, y] of pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  push(); translate(cx, cy); draw(pts.map(([x, y]) => [x - cx, y - cy])); pop();
-}
-function paint(pts, o = {}) { centred(pts, (P) => paintAt(P, o)); }
+// Pixi's brush engine handles camera transforms directly; no per-shape origin
+// workaround or intermediate output canvas is needed.
+function paint(pts, o = {}) { if (pts.length) paintAt(pts, o); }
 function paintAt(pts, o) {
   if (o.wash || o.fill || o.hatch) {
     if (o.wash) brush.wash(o.wash, o.washOp ?? 255); else brush.noWash();
@@ -200,10 +193,11 @@ function paintAt(pts, o) {
   }
 }
 function inkLine(pts, sw = 1, col = PAL.ink, br = 'ink', curv = .5) {
-  centred(pts, (P) => { brush.noFill(); brush.noWash(); brush.noHatch(); brush.set(br, col, sw); brush.spline(P, curv); });
+  if (!pts.length) return;
+  brush.noFill(); brush.noWash(); brush.noHatch(); brush.set(br, col, sw); brush.spline(pts, curv);
 }
 
-// ---------- lettering (drawn on the 2D compositor, under the paper grain) ----------
+// ---------- lettering (Pixi Text in the painted texture, under the paper grain) ----------
 // Use sparingly: see "No text" in ANIMATION_GUIDE.md. Seeky's emotes are painted and never need these.
 function letter(txt, x, y, size, color, o = {}) {
   if (CAM && !o.screen) { [x, y] = toScreen(x, y); size *= CAM.zoom; o = { ...o, rot: (o.rot || 0) + CAM.rot }; if (o.font) o.font = o.font.replace(/(\d+(\.\d+)?)px/, (m, v) => (v * CAM.zoom) + 'px'); }
@@ -214,40 +208,22 @@ function sfx(txt, x, y, size, color, age, o = {}) {
   const life = o.life ?? 1.2; if (age < 0 || age > life) return;
   letter(txt, x, y, size, color, { pop: age * 5, rot: (o.rot ?? -.08) + Math.sin(age * 20) * .03 * (1 - age / life), alpha: 1 - seg(age, life - .25, life), ...o });
 }
-function drawLetters(c) {
-  for (const L of LETTERS) {
-    const k = L.pop != null ? backOut(L.pop) : 1; if (k <= .01) continue;
-    c.save(); c.translate(L.x, L.y); c.rotate(L.rot || 0); c.scale(k, k); c.globalAlpha = L.alpha ?? 1;
-    c.font = L.font || `${L.size}px "Permanent Marker", "Comic Sans MS", cursive`;
-    c.textAlign = L.align || 'center'; c.textBaseline = 'middle';
-    if (L.stroke) { c.lineJoin = 'round'; c.lineWidth = L.size * .12; c.strokeStyle = L.stroke; c.strokeText(L.txt, 0, 0); }
-    if (L.ink !== false) { c.fillStyle = PAL.ink; c.fillText(L.txt, L.size * .045, L.size * .055); }
-    c.fillStyle = L.color; c.fillText(L.txt, 0, 0);
-    c.restore();
-  }
-}
+function drawLetters() { PixiRuntime.letters(LETTERS); }
 
-// p5.brush defers washes and strokes into a mask layer; a (tiny, off-screen) watercolor fill forces it to composite
-// now, so everything painted before this call really lands under whatever p5 draws next (letters, glow).
-function flushBrush() {
-  push(); resetMatrix(); translate(-W / 2, -H / 2);
-  brush.noStroke(); brush.noHatch(); brush.noWash(); brush.fill('#000000', 1); brush.fillBleed(0); brush.fillTexture(0, 0);
-  brush.polygon([[-50, -50], [-40, -50], [-40, -40]]); brush.noFill(); pop();
-}
+// An explicit flush preserves draw order across pigment, additive light and text.
+function flushBrush() { PixiRuntime.flush(); }
 // Paint the queued lettering into the scene itself, so later layers (wipes) cover it. drawWorld calls this after each
 // frame; call it yourself before a wipe or iris if the shot has lettering, or the letters will sit on top of it.
 function flushLetters() {
   if (!LETTERS.length) return;
-  letG.clear(); drawLetters(letG.drawingContext); LETTERS = [];
-  flushBrush();
-  // Letters are already in screen space, so composite them with the base transform even inside camBegin().
-  push(); resetMatrix(); translate(-W / 2, -H / 2); image(letG, 0, 0); pop();
+  drawLetters(); LETTERS = [];
 }
 
 // ---------- paper ----------
 function lcg(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 function makePaper() {
-  const g = createGraphics(W, H); g.pixelDensity(1); const c = g.drawingContext, rnd = lcg(11);
+  const g = document.createElement('canvas'); g.width = W; g.height = H;
+  const c = g.getContext('2d'), rnd = lcg(11);
   c.fillStyle = PAL.paper; c.fillRect(0, 0, W, H);
   for (let i = 0; i < 70; i++) { const x = rnd() * W, y = rnd() * H, r = 120 + rnd() * 380, gr = c.createRadialGradient(x, y, 0, x, y, r), a = .045 * rnd(); gr.addColorStop(0, `rgba(160,125,80,${a})`); gr.addColorStop(1, 'rgba(160,125,80,0)'); c.fillStyle = gr; c.fillRect(x - r, y - r, 2 * r, 2 * r); }
   c.lineWidth = 1;
@@ -273,33 +249,51 @@ function defineBrushes() {
 }
 
 // ---------- frame ----------
-async function setup() {
-  createCanvas(W, H, WEBGL); pixelDensity(1); noLoop();
-  brush.scaleBrushes(5); defineBrushes();
-  paperG = makePaper(); grainC = makeGrain(); glowTex = makeGlowTex(); letG = createGraphics(W, H); letG.pixelDensity(1);
-  outC = document.getElementById('out'); outX = outC.getContext('2d');
-  await document.fonts.load('100px "Permanent Marker"');
+let setupPromise = null, brushesDefined = false;
+function setup() {
+  if (!setupPromise) setupPromise = initializeScene().catch(error => {
+    setupPromise = null; window.ready = false; throw error;
+  });
+  return setupPromise;
+}
+async function initializeScene() {
+  outC = document.getElementById('out');
+  await PixiRuntime.init(outC, W, H);
+  // Preserve the old setup's order: scale existing stock brushes only, then
+  // register ink/inkfine/dry at their authored sizes (not the GPU global scale).
+  if (!brushesDefined) {
+    for (const name of brush.box()) {
+      const profile = brush.getBrushParams(name);
+      brush.add(name, { ...profile, weight: profile.weight * 5,
+        scatter: profile.scatter * 5, spacing: profile.spacing * 5 });
+    }
+    defineBrushes(); brushesDefined = true;
+  }
+  paperG = makePaper(); grainC = makeGrain(); glowTex = makeGlowTex();
+  PixiRuntime.textures(paperG, grainC, glowTex);
   window.ready = true;
-  if (!location.search.includes('render')) devUI();
+  if (!location.search.includes('render') && !window.CUSTOM_PLAYBACK) devUI();
 }
 function draw() {
   if (!window.ready) return;
   LETTERS = []; CAM = LAST_CAM = null;
-  push(); translate(-W / 2, -H / 2);
+  PixiRuntime.begin();
   BOILN = Math.floor(T * BOIL); SPRITE_N = 0; boilSeed('frame'); noiseSeed(77);
-  image(paperG, 0, 0);
-  drawWorld(T);
-  pop();
+  try { drawWorld(T); flushLetters(); PixiRuntime.end(); }
+  catch (error) { while (sceneStack.length) pop(); throw error; }
 }
-function composite(t) {
-  const c = outX;
-  c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
-  c.drawImage(drawingContext.canvas, 0, 0, W, H);
-  drawLetters(c);
-  c.globalCompositeOperation = 'multiply'; c.drawImage(grainC, 0, 0);
-  c.globalCompositeOperation = 'source-over';
-}
-window.renderAt = async (t, type = 'image/png', q = .92) => { T = t; await redraw(); composite(t); return outC.toDataURL(type, q); };
+// Interactive playback uses renderFrame: no readPixels, canvas copy or PNG
+// encoding in the animation loop. Only explicit offline exports encode pixels.
+window.renderFrame = (t) => {
+  if (!window.ready) throw new Error('The Pixi renderer is not ready.');
+  if (!Number.isFinite(t)) throw new TypeError('Animation time must be finite.');
+  const start = performance.now(); T = t; draw();
+  PixiRuntime.stats.frameMs = performance.now() - start;
+  return PixiRuntime.stats;
+};
+window.renderAt = async (t, type = 'image/png', q = .92) => {
+  window.renderFrame(t); return outC.toDataURL(type, q);
+};
 // Contact sheet of several times, for visual checks: returns { url, ms[] }. crop = [x, y, w, h] fills each cell with just
 // that region of the frame, at full resolution (for checking faces, hands and contacts up close). at = [x, y, w, h]
 // instead crops w × h around the WORLD point (x, y), wherever each frame's camera put it (a foot, a splash, a prop on
@@ -309,19 +303,19 @@ window.renderSheet = async (times, cols = 3, w = 640, crop = null, at = null) =>
   const [, , cw, ch] = at || crop || [0, 0, W, H], h = Math.round(w * ch / cw), rows = Math.ceil(times.length / cols), sc = document.createElement('canvas');
   sc.width = cols * w; sc.height = rows * h; const c = sc.getContext('2d'), ms = [];
   for (let i = 0; i < times.length; i++) {
-    const t0 = performance.now(); T = times[i]; await redraw(); composite(times[i]); ms.push(Math.round(performance.now() - t0));
+    const t0 = performance.now(); window.renderFrame(times[i]); ms.push(Math.round(performance.now() - t0));
     const x = (i % cols) * w, y = Math.floor(i / cols) * h;
     const [cx, cy] = at ? toScreen(at[0], at[1], LAST_CAM).map((v, j) => v - (j ? ch : cw) / 2) : crop || [0, 0];
     c.drawImage(outC, cx, cy, cw, ch, x, y, w, h); c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x, y, 84, 24); c.fillStyle = '#fff'; c.font = '15px sans-serif'; c.fillText(times[i].toFixed(2) + 's', x + 6, y + 17);
   }
   return { url: sc.toDataURL('image/jpeg', .9), ms };
 };
-window.gpuInfo = () => { const gl = drawingContext, e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); };
+window.gpuInfo = () => PixiRuntime.gpuInfo();
 
 function devUI() {
   const s = document.getElementById('scrub'), lab = document.getElementById('tt'); s.max = window.LOOP ? window.LOOP.len : DUR;
   let busy = false, want = null;
-  const go = async () => { if (busy) return; busy = true; while (want != null) { const t = want; want = null; const t0 = performance.now(); await window.renderAt(t); lab.textContent = `${t.toFixed(2)}s  ·  ${Math.round(performance.now() - t0)} ms/frame`; } busy = false; };
+  const go = async () => { if (busy) return; busy = true; while (want != null) { const t = want; want = null; const result = window.renderFrame(t); lab.textContent = `${t.toFixed(2)}s  ·  PixiJS · ${Math.round(result.frameMs)} ms/frame`; } busy = false; };
   s.addEventListener('input', () => { want = +s.value; go(); });
   want = +(new URLSearchParams(location.search).get('t') || 0); s.value = want; go();
 }

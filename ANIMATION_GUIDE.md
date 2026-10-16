@@ -27,10 +27,10 @@ Underneath all three, the viewer has to be able to follow it. Timing (rule 4) is
 
 ### 1. The medium is solid: brush strokes, flat 2D, boil
 
-- **Paint everything with p5.brush through `paint()` and `inkLine()`.** Characters get flat `wash` colour plus an ink outline. Backgrounds get soft watercolour `fill` shapes, usually with no outline or a thin one. Never use plain p5 shapes (`rect`, `ellipse`, `fill()`): they look like 2000s Flash.
+- **Paint everything with the local Pixi GPU brush engine through `paint()` and `inkLine()`.** Characters get flat `wash` colour plus an ink outline. Backgrounds get soft watercolour `fill` shapes, usually with no outline or a thin one. The engine is the sibling `../p5.brush` rewrite, not the public npm p5.brush release. Never replace the painted shapes with plain digital primitives: they look like 2000s Flash.
 - **The linework boils.** `jit()` and `random()` are reseeded 12 times a second (`BOIL`), so every drawing wobbles slightly, like hand-drawn animation. That's the look; don't fight it. For anything that must stay put from frame to frame (star positions, tuft heights), use `hash(i)`. Give each separate element its own seed with `boilSeed(key)` (see Engine), or one moving thing makes everything drawn after it jitter.
 - **Everything is flat 2D. Never project 3D.** Don't rotate a box in perspective, don't use `rotateY` or WEBGL 3D and don't fake depth with math. Seeky turns through **drawn key views** (front → 3/4 → side → back 3/4 → back), exactly like a cartoon model sheet: see `turn()` and `spinView()`. Depth comes from overlap, scale and colour (farther = smaller, bluer, paler), never from a projection.
-- **Light is the one exception.** p5.brush mixes colour like pigment, so a yellow glow painted over blue turns green, and a thin wash over it turns grey. Use `glow()` for anything that shines: it adds real light, under the paper grain.
+- **Light is the one exception.** The local GPU brush engine mixes paint like pigment; this is different from emitted light. Use `glow()` for anything that shines: Pixi adds light in drawing order, under the paper grain.
 - **Soft palette, no pure black or white.** Use `PAL.ink` for black and `PAL.cream` or `PAL.paper` for white. Keep colours soft and harmonious, and keep Seeky clearly readable against the background.
 
 ### 2. No text
@@ -217,13 +217,14 @@ node render.mjs --encode --out=out/video.mp4                    # … then encod
 | file | what's in it |
 |---|---|
 | `src/config.js` | `PROJECT = { duration, bpm, offset, audio? }` |
+| `src/pixi-runtime.js` | PixiJS backend: GPU brush engine, `push()/pop()` transform stack, ordered light/paper composition, `renderFrame`/`renderAt`/`renderSheet` |
 | `src/core.js` | canvas, palette, timing and motion helpers, `paint()`, camera, full-frame effects, `glow()`, lettering, paper, render hooks |
 | `src/seeky.js` | Seeky: views, emotions, eyes, mouths, emotes, moves |
 | `src/hats.js` | hats and face pieces, each drawn for the view it is seen from |
 | `src/timeline.js` | `shots()`, `LOOPS`, `brushWipe()` |
 | `src/sheets.js` | the model sheets as loops (`?loop=emotions`, `?loop=views`, `?loop=hats`, `?loop=hats2`) |
 | `src/scenes/demo.js` | an 11-second example. **Don't copy it** (see the end of this guide) |
-| `studio.html` | open it in Chrome to scrub the video (`?t=2.5` jumps to a time, `?loop=emotions` shows a loop) |
+| `studio.html` | open it through `npm run dev` to play or scrub the video (`?t=2.5` opens a paused frame, `?autoplay=0` disables autoplay, `?loop=emotions` shows a loop). GitHub Pages deploys it as well, so the scene files you load here go live on push |
 | `render.mjs` | headless renderer: sheets, strips, crops, stills, PNG loops, MP4 |
 
 ### Frames are pure functions of time
@@ -250,7 +251,7 @@ node render.mjs --encode --out=out/video.mp4                    # … then encod
 | `ink, sw, br` | outline colour (default `PAL.ink`), weight (~.4–2), brush. **`ink: null` means no outline.** |
 | `curv` | 0–1: smooth the outline through the points. |
 
-- **Lines:** `inkLine(pts, sw, colour, brush = 'ink', curvature)`. The kit's brushes are `'ink'`, `'inkfine'` and `'dry'` (bristly). p5.brush's built-ins also work: `'2B'`, `'HB'`, `'charcoal'`, `'marker'`, `'pen'`, `'cpencil'`, `'rotring'`, `'spray'`.
+- **Lines:** `inkLine(pts, sw, colour, brush = 'ink', curvature)`. The kit's brushes are `'ink'`, `'inkfine'` and `'dry'` (bristly). The local GPU engine retains built-in brush names such as `'2B'`, `'HB'`, `'charcoal'`, `'marker'`, `'pen'`, `'cpencil'`, `'rotring'`, `'spray'`; their algorithms and texture are new, not pixel-identical to p5.brush.
 - **Shapes:**
   - `rectPts(x, y, w, h, jitter)`
   - `ellPts(cx, cy, rx, ry, n, jitter, rot)`
@@ -262,20 +263,14 @@ node render.mjs --encode --out=out/video.mp4                    # … then encod
 - **One shape, one outline.** Build a creature or prop from as few outlines as you can, so it doesn't look like glued-on stickers: a tail is one `ribbon`, not five circles.
 - **Light:** `glow(x, y, r, colour, a)`. It's additive, so it stays warm on dark grounds and barely shows on light ones (as real light would). Draw it before the things that sit in front of the light.
 - **Palette** `PAL`: `paper, ink, ds, dsDk, dsLt` (DeepSeek blue and its shade and highlight), `clay, clayDk, clayLt, night, indigo, rose, ochre, sap, teal, violet, cream, sky`. `mixCol(a, b, k)` mixes two hex colours in RGB. Any hex colour works: pick a small palette per video.
-- **p5.brush quirks:**
-  - Colours mix like pigment: yellow over blue makes green. Layer light colours over dark ones with a full-opacity `wash`, or use `glow()`.
-  - `wash` at 255 is exact colour; lower opacities mix.
-  - Strokes drawn far from the origin under a zoomed camera collapse: from zoom ~2, an outline or a line at large
-    world coordinates leaves only a dot at its first vertex. `paint()` and `inkLine()` draw each shape around its own
-    centre, which avoids it. A shape much bigger than the canvas can still lose its outline: draw long edges as
-    `inkLine`s no bigger than the canvas.
-  - Outline weight is in world units, so it grows with the camera's zoom: a fine outline on a small shape becomes a
-    dark blob in a close-up. Scale `sw` down with the zoom for small shapes.
-  - A NaN in a point list throws `Failed to construct 'OffscreenCanvas': Value is not of type 'unsigned long'`, with
-    a stack pointing at your scene rather than the NaN. Guard geometry that can degenerate (`Math.acos` of a ratio > 1).
-  - p5 `push()/pop()/translate()/rotate()/scale()` work with all brush calls.
-  - Cost is the number of `fill` shapes and strokes: hundreds are fine, thousands are not. Aim for ≤ 1.5 s per frame. The render log prints ms/frame.
-  - Some scenes make p5.brush log five `WebGL: INVALID_OPERATION ... not from the associated program` warnings once per page. They're harmless (frames come out identical). Any other page error is real.
+- **Current Pixi engine behaviour:**
+  - Use `paint()`, `inkLine()` and `glow()` so brush commands, additive light and the final paper grain keep their drawing order. A full-opacity `wash` is flat colour; lower opacity and watercolour `fill` blend with the paint beneath.
+  - The shared `push()/pop()/translate()/rotate()/scale()` helpers transform both brush commands and Pixi light sprites. They are scene helpers in `src/pixi-runtime.js`, not a p5 runtime. Always balance each `push()` with `pop()`; `camBegin()`/`camEnd()` use the same transform stack. Shapes use their authored world coordinates.
+  - Outline weight is in world units and grows with camera zoom. Scale `sw` down for small shapes in close-ups.
+  - Geometry must contain finite numbers. The GPU brush API rejects NaN and infinite coordinates. Guard calculations that can degenerate, such as `Math.acos()` of a ratio outside [-1, 1], before passing points to the painting helpers.
+  - GPU fill cost depends on shape coverage, watercolour passes and layering as well as shape count. Large overlapping fills and extra flushes can be expensive; measure the actual scene and GPU instead of assuming a fixed frame-time target. Treat WebGL errors as bugs to investigate.
+  - Interactive playback calls `renderFrame(t)`, which draws without image encoding. Its displayed milliseconds measure CPU/driver submission, without waiting for GPU completion, so they are neither GPU execution time nor measured FPS.
+  - Offline callers wait for `window.ready`, then use `renderAt(t, type, quality)` for an encoded frame or `renderSheet(times, cols, width, crop, at)` for a contact sheet; `gpuInfo()` reports the renderer. `studio.html?render` initializes these APIs without starting UI playback.
 
 ### Time and motion (all pure functions of t)
 
@@ -442,7 +437,7 @@ These are the things that make a Seeky video look generated. Check your storyboa
 - jittery linework: still things re-boiling every frame because something moving before them shifted the random stream (`boilSeed`)
 - hard cuts everywhere, or a video that just starts and stops
 - 3D rotation, perspective boxes or projected turns
-- plain p5 shapes, gradients or digital glows mixed into the paint (use `paint`/`inkLine`/`glow`)
+- plain digital primitives, gradients or glows mixed into the paint (use `paint`/`inkLine`/`glow`)
 - muddy green-grey glows from painting yellow over blue
 - props floating near a hand instead of touching it
 - every shot a different world with nothing linking them

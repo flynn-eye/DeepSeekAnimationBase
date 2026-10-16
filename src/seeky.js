@@ -29,11 +29,11 @@ const VIEWS = {
            belly: [1.3, 3.2], spout: 2, tail: [[-2, -5.6], [-5, -6.5], [-6.8, -8.2], [-6.6, -10.1]], arms: [[5, 1, 'R', 2], [-4.7, -1, 'L', 1]] },
   // The profile is drawn, not squeezed from the front view: top / bot trace the head, back and belly from the tail root to
   // the nose (left to right); tail starts at that root, so body, stalk and fluke are ONE outline. bellyUp is the edge of
-  // the pale throat (it doubles as the mouth line), hl the back highlight [x, y, rx, ry].
+  // the pale throat (it doubles as the mouth line).
   side:  { L: -4.6, R: 5.45, whale: true, face: { cx: 1.9, fw: .55, sides: [1], mx: 2.5, bx: 2.1, dy: .2 }, hat: 1.5, yaw: .25, fit: { cx: 1.5, dip: .75, pitch: .1 }, spout: 2,
            top: [[-4.4, -5.55], [-3.3, -6.25], [-1.9, -7.1], [0, -7.85], [2, -8.1], [3.6, -7.6], [4.7, -6.5], [5.3, -5.5], [5.45, -4.7]],
            bot: [[-4.4, -3.65], [-3.2, -3.1], [-1.6, -2.45], [.4, -2.05], [2.4, -2.1], [4, -2.75], [4.9, -3.3], [5.3, -3.95], [5.45, -4.7]],
-           bellyUp: [[-4, -3.8], [-2.6, -3.5], [-.8, -3.5], [1, -3.75], [2.4, -4], [3.8, -4.15], [5, -4.35], [5.25, -4.45]], hl: [.8, -6.9, 2.4, .7],
+           bellyUp: [[-4, -3.8], [-2.6, -3.5], [-.8, -3.5], [1, -3.75], [2.4, -4], [3.8, -4.15], [5, -4.35], [5.25, -4.45]],
            tail: [[-4.4, -4.6], [-6.5, -4.7], [-7.9, -6], [-7.9, -8], [-7, -9.6]], arms: [[1.5, 0, 'L', 1]] },
   // Seen from behind (qback, back) the tail is the part nearest the viewer: tailFront draws it OVER the body, growing out of
   // the lower rear and rising over the back, with the fluke curling forward at the top.
@@ -245,8 +245,7 @@ function seeky(x, y, u, o = {}) {
     if (V.whale) whaleBelly(V, u, J, sw, o, belly, dk);
     else if (V.belly) paint(ellPts(V.belly[0] * u, -3.2 * u, V.belly[1] * u, 1.05 * u, 22, J), { wash: belly, washOp: 240, fill: '#FFFFFF', fillOp: 40, bleed: .1, tex: .5, ink: null });
     const px = V.strip ? (V.strip[0] < 0 ? (V.seam + V.R) / 2 - 1.2 : (V.L + V.seam) / 2 - .6) : cx - 1.6 * wk;
-    if (V.hl) paint(ellPts(V.hl[0] * u, V.hl[1] * u, V.hl[2] * u, V.hl[3] * u, 18, J * 2, -.1), { fill: lt, fillOp: 130, bleed: .2, tex: .85, border: .8, ink: null });
-    else paint(ellPts(px * u, -6.5 * u, 2.9 * u * (V.strip ? .75 : wk), 1.2 * u, 18, J * 2, -.08), { fill: lt, fillOp: V.back ? 80 : 130, bleed: .2, tex: .85, border: .8, ink: null });
+    if (!V.face) paint(ellPts(px * u, -6.5 * u, 2.9 * u * (V.strip ? .75 : wk), 1.2 * u, 18, J * 2, -.08), { fill: lt, fillOp: V.back ? 80 : 130, bleed: .2, tex: .85, border: .8, ink: null });
     if (V.strip) {   // the side face turned from the light: a soft shade, strongest at the outer edge and fading toward the face; no line, no hard edge
       const outer = V.strip[0] < V.seam ? V.strip[0] : V.strip[1];
       for (let k = 1; k <= 4; k++) { const e = lerp(outer, V.seam, k / 4); paint(bodyCols(V, u, Math.min(outer, e), Math.max(outer, e)), { fill: dk, fillOp: 48, bleed: .25, tex: .5, border: .3, ink: null }); }
@@ -330,7 +329,6 @@ function lunchbox(u, o, sw, J, lid, col, dk, lt, belly) {
   // lid
   push(); translate(-5 * u, hy); rotate(-A); translate(5 * u, -hy);
   paint(top, { wash: col, washOp: 255, ink: null });
-  paint(ellPts(-1.6 * u, -6.7 * u, 2.9 * u, .9 * u, 16, J), { fill: lt, fillOp: 120, bleed: .15, tex: .8, border: .8, ink: null });
   for (let i = 0; i < 5; i++) tooth(-3.6 * u + i * 1.6 * u, 1);
   paint(top, { ink: PAL.ink, sw });
   if (o.gloom > .02) gloom(u, sw, VIEWS.front, o.gloom);
